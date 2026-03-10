@@ -1,0 +1,1467 @@
+{% extends "base.html" %}
+{% set active_page = "graph" %}
+
+{% block title %}Diamond Model Graph{% endblock %}
+{% block body_class %}graph-page-active{% endblock %}
+
+{% block content %}
+<div class="graph-page">
+<div class="graph-workspace" id="graphWorkspace">
+    <button type="button" class="btn btn-outline-secondary btn-sm modeler-toggle" onclick="openModelerDrawer()" title="Open panel">
+        &#9654;
+    </button>
+    <div class="modeler-backdrop" onclick="closeModelerDrawer()"></div>
+    <div class="modeler-drawer">
+        <button type="button" class="btn btn-outline-secondary btn-sm modeler-drawer-close" onclick="closeModelerDrawer()" title="Retract panel">
+            &#9664;
+        </button>
+        {% include "_modeler_panel.html" %}
+    </div>
+
+    <div class="card graph-card">
+        <div class="card-body graph-card-body">
+            <div class="graph-container-wrapper">
+                <div class="graph-zoom-controls">
+                    <button type="button" class="btn btn-light btn-sm graph-zoom-btn" onclick="graphZoomIn()" title="Zoom in">+</button>
+                    <button type="button" class="btn btn-light btn-sm graph-zoom-btn" onclick="graphZoomOut()" title="Zoom out">−</button>
+                </div>
+                <div class="graph-container graph-container--full" id="cyto-graph"></div>
+                <div id="edge-labels-overlay" class="edge-labels-overlay" aria-hidden="true"></div>
+                <div id="graph-notes-overlay" class="graph-notes-overlay"></div>
+                <div id="node-hover-tooltip" class="node-hover-tooltip" aria-hidden="true">Click to expand</div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+<!-- Diamond Details Popup -->
+<div id="diamondDetailsPopup" class="popup-overlay" style="display: none;">
+    <div class="popup-content">
+        <div class="popup-header">
+            <h2 id="popupDiamondLabel">Diamond Details</h2>
+            <button onclick="closeDiamondDetails()" class="popup-close" title="Close popup">&times;</button>
+        </div>
+        <div class="popup-body">
+            <div id="popupDiamondContent">
+                <!-- Content will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- OpenAI API Key Modal -->
+<div id="openAIKeyModal" class="popup-overlay" style="display: none;">
+    <div class="popup-content" style="max-width: 420px;">
+        <div class="popup-header">
+            <h2>OpenAI API Key</h2>
+            <button type="button" onclick="closeOpenAIKeyModal()" class="popup-close" title="Close">&times;</button>
+        </div>
+        <div class="popup-body">
+            <p class="text-muted small mb-2">Stored in .env and reloaded for this session. Used for attribution and other features.</p>
+            <input type="password" id="openAIKeyInput" class="form-control form-control-sm mb-2" placeholder="sk-...">
+            <div id="openAIKeyMessage" class="small mb-2" style="display: none;"></div>
+            <div class="d-flex gap-2 justify-content-end">
+                <button type="button" onclick="closeOpenAIKeyModal()" class="btn btn-outline-secondary btn-sm">Cancel</button>
+                <button type="button" onclick="saveOpenAIKey()" class="btn btn-primary btn-sm">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<!-- Cytoscape.js -->
+<script src="https://unpkg.com/cytoscape@3.26.0/dist/cytoscape.min.js"></script>
+
+<script>
+let cy;
+
+// Graph notes (stored in model coordinates); session-only
+var graphNotes = [];
+var noteElementsById = {};
+var noteDrag = null;
+
+function getViewCenterModel() {
+    if (!cy) return { x: 0, y: 0 };
+    var pan = cy.pan();
+    var zoom = cy.zoom();
+    var container = cy.container();
+    if (!container) return { x: 0, y: 0 };
+    var w = container.offsetWidth / 2;
+    var h = container.offsetHeight / 2;
+    return {
+        x: (w - pan.x) / zoom,
+        y: (h - pan.y) / zoom
+    };
+}
+
+function createNewNote() {
+    var center = getViewCenterModel();
+    var note = {
+        id: 'note-' + Date.now(),
+        x: center.x,
+        y: center.y,
+        text: ''
+    };
+    graphNotes.push(note);
+    updateNotesOverlay(false);
+}
+
+function updateNotesOverlay(positionsOnly) {
+    var overlay = document.getElementById('graph-notes-overlay');
+    if (!overlay || !cy) return;
+    var pan = cy.pan();
+    var zoom = cy.zoom();
+
+    if (!positionsOnly) {
+        var ids = graphNotes.map(function(n) { return n.id; });
+        graphNotes.forEach(function(note) {
+            ensureNoteElement(note);
+        });
+        Object.keys(noteElementsById).forEach(function(id) {
+            if (ids.indexOf(id) === -1) {
+                removeNoteElement(id);
+            }
+        });
+    }
+
+    graphNotes.forEach(function(note) {
+        var el = noteElementsById[note.id];
+        if (el) {
+            el.style.left = (note.x * zoom + pan.x) + 'px';
+            el.style.top = (note.y * zoom + pan.y) + 'px';
+        }
+    });
+}
+
+function ensureNoteElement(note) {
+    if (noteElementsById[note.id]) return noteElementsById[note.id];
+    var overlay = document.getElementById('graph-notes-overlay');
+    if (!overlay) return null;
+
+    var wrap = document.createElement('div');
+    wrap.className = 'graph-note';
+    wrap.setAttribute('data-note-id', note.id);
+
+    var header = document.createElement('div');
+    header.className = 'graph-note-header';
+
+    var closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'graph-note-close';
+    closeBtn.setAttribute('aria-label', 'Close note');
+    closeBtn.innerHTML = '&times;';
+    closeBtn.onclick = function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        removeNote(note.id);
+    };
+
+    var body = document.createElement('div');
+    body.className = 'graph-note-body';
+    body.contentEditable = 'true';
+    body.setAttribute('data-placeholder', 'Type a note…');
+    body.textContent = note.text || '';
+
+    body.addEventListener('input', function() {
+        var n = graphNotes.find(function(x) { return x.id === note.id; });
+        if (n) n.text = body.textContent;
+    });
+
+    header.appendChild(closeBtn);
+    wrap.appendChild(header);
+    wrap.appendChild(body);
+    overlay.appendChild(wrap);
+    noteElementsById[note.id] = wrap;
+
+    header.addEventListener('mousedown', function(e) {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        startNoteDrag(note.id, e.clientX, e.clientY);
+    });
+
+    return wrap;
+}
+
+function removeNoteElement(id) {
+    var el = noteElementsById[id];
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+    delete noteElementsById[id];
+}
+
+function removeNote(id) {
+    graphNotes = graphNotes.filter(function(n) { return n.id !== id; });
+    removeNoteElement(id);
+}
+
+function startNoteDrag(noteId, clientX, clientY) {
+    var note = graphNotes.find(function(n) { return n.id === noteId; });
+    if (!note || !cy) return;
+    var zoom = cy.zoom();
+    noteDrag = {
+        noteId: noteId,
+        startX: note.x,
+        startY: note.y,
+        startClientX: clientX,
+        startClientY: clientY,
+        zoom: zoom
+    };
+    document.addEventListener('mousemove', onNoteDragMove);
+    document.addEventListener('mouseup', onNoteDragEnd);
+}
+
+function onNoteDragMove(e) {
+    if (!noteDrag || !cy) return;
+    var note = graphNotes.find(function(n) { return n.id === noteDrag.noteId; });
+    if (!note) return;
+    var zoom = cy.zoom();
+    var dx = (e.clientX - noteDrag.startClientX) / zoom;
+    var dy = (e.clientY - noteDrag.startClientY) / zoom;
+    note.x = noteDrag.startX + dx;
+    note.y = noteDrag.startY + dy;
+    updateNotesOverlay(true);
+}
+
+function onNoteDragEnd() {
+    noteDrag = null;
+    document.removeEventListener('mousemove', onNoteDragMove);
+    document.removeEventListener('mouseup', onNoteDragEnd);
+}
+
+function escapeXml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+}
+
+function splitLabelLines(label, maxLineLength = 12, maxLines = 2) {
+    const words = String(label || '').trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) {
+        return [''];
+    }
+
+    const lines = [];
+    let current = '';
+
+    for (const word of words) {
+        const candidate = current ? `${current} ${word}` : word;
+        if (candidate.length <= maxLineLength) {
+            current = candidate;
+            continue;
+        }
+
+        if (current) {
+            lines.push(current);
+            current = word;
+        } else {
+            lines.push(word.slice(0, maxLineLength));
+            current = word.slice(maxLineLength);
+        }
+
+        if (lines.length >= maxLines - 1) {
+            break;
+        }
+    }
+
+    if (lines.length < maxLines && current) {
+        lines.push(current);
+    }
+
+    return lines.slice(0, maxLines);
+}
+
+function buildDiamondSvg(color, label) {
+    const safeColor = color || '#4b49ac';
+    const lines = splitLabelLines(label);
+    const firstLine = escapeXml(lines[0] || '');
+    const secondLine = escapeXml(lines[1] || '');
+
+    const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <polygon points="50,2 98,50 50,98 2,50" fill="${safeColor}" stroke="#1a1a1a" stroke-width="1"/>
+  <style>
+    .corner {
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      fill: #ffffff;
+      stroke: #000000;
+      stroke-width: 1px;
+      paint-order: stroke fill;
+      text-anchor: middle;
+    }
+    .title {
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      fill: #ffffff;
+      stroke: #000000;
+      stroke-width: 1px;
+      paint-order: stroke fill;
+      text-anchor: middle;
+    }
+  </style>
+  <text class="corner" x="50" y="8">A</text>
+  <text class="corner" x="8" y="53">C</text>
+  <text class="corner" x="92" y="53">I</text>
+  <text class="corner" x="50" y="96">V</text>
+  <text class="title" x="50" y="53">${firstLine}</text>
+  ${secondLine ? `<text class="title" x="50" y="65">${secondLine}</text>` : ''}
+</svg>`;
+    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+function endpointFromEdgeLabel(label) {
+    const prefix = String(label || '').split(':', 1)[0].trim().toLowerCase();
+    if (prefix === 'adversary') {
+        return '0 -50%';   // top corner
+    }
+    if (prefix === 'victimology') {
+        return '0 50%';    // bottom corner
+    }
+    if (prefix === 'capability') {
+        return '-50% 0';   // left corner
+    }
+    if (prefix === 'infrastructure') {
+        return '50% 0';    // right corner
+    }
+    return 'outside-to-node';
+}
+
+function getWorkspace() {
+    return document.getElementById('graphWorkspace');
+}
+
+function openModelerDrawer() {
+    const ws = getWorkspace();
+    if (ws) {
+        ws.classList.add('drawer-open');
+    }
+}
+
+function closeModelerDrawer() {
+    const ws = getWorkspace();
+    if (ws) {
+        ws.classList.remove('drawer-open');
+    }
+}
+
+function toggleModelerDrawer() {
+    const ws = getWorkspace();
+    if (ws) {
+        ws.classList.toggle('drawer-open');
+    }
+}
+
+function toggleSection(sectionName) {
+    const content = document.getElementById(sectionName + '-content');
+    const icon = document.querySelector(`[onclick="toggleSection('${sectionName}')"] .expand-icon`);
+    if (!content || !icon) {
+        return;
+    }
+
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        icon.textContent = '▲';
+    } else {
+        content.style.display = 'none';
+        icon.textContent = '▼';
+    }
+}
+
+function toggleCreateDiamondForm() {
+    const content = document.getElementById('create-diamond-form-content');
+    const icon = document.getElementById('createDiamondExpandIcon');
+    if (!content || !icon) {
+        return;
+    }
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        icon.textContent = '▲';
+    } else {
+        content.style.display = 'none';
+        icon.textContent = '▼';
+    }
+}
+
+function ensureCreateDiamondFormOpen() {
+    const content = document.getElementById('create-diamond-form-content');
+    const icon = document.getElementById('createDiamondExpandIcon');
+    if (!content || !icon) {
+        return;
+    }
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        icon.textContent = '▲';
+    }
+}
+
+function ensureSectionOpen(sectionName) {
+    const content = document.getElementById(sectionName + '-content');
+    if (!content) {
+        return;
+    }
+
+    if (content.style.display === 'none') {
+        toggleSection(sectionName);
+    }
+}
+
+function ensureFormInCreateMode() {
+    const form = document.getElementById('diamondForm');
+    if (!form) {
+        console.error('diamondForm not found; cannot reset to create mode');
+        return;
+    }
+
+    form.setAttribute('method', 'POST');
+    document.getElementById('diamond_id').value = '';
+
+    const titleEl = document.getElementById('diamondFormTitle');
+    if (titleEl) {
+        titleEl.textContent = 'Create New Diamond';
+    }
+    const createHeader = document.getElementById('createDiamondHeader');
+    if (createHeader) {
+        createHeader.setAttribute('title', 'Click to expand or collapse');
+    }
+
+    const submitButton = form.querySelector('button[type="submit"]');
+    if (submitButton) {
+        submitButton.textContent = 'Create Diamond';
+    }
+
+    const cancelButton = document.getElementById('cancelEdit');
+    if (cancelButton) {
+        cancelButton.remove();
+    }
+}
+
+function cancelEdit() {
+    const form = document.getElementById('diamondForm');
+    if (!form) {
+        return;
+    }
+    form.reset();
+    ensureFormInCreateMode();
+}
+
+function clearForm() {
+    const form = document.getElementById('diamondForm');
+    if (!form) {
+        return;
+    }
+    form.reset();
+    ensureFormInCreateMode();
+}
+
+function updateDiamondListHtml(html) {
+    const container = document.getElementById('diamond-list');
+    if (!container) {
+        console.error('diamond-list container not found');
+        return;
+    }
+    container.innerHTML = html;
+}
+
+function extractErrorFromListHtml(html) {
+    if (!html || !html.includes('alert-error')) {
+        return null;
+    }
+    const match = html.match(/<div class="alert alert-error"[^>]*>[\s\S]*?<strong>Error:<\/strong>\s*([^<]+)/);
+    return match ? match[1].trim() : 'Unknown error occurred';
+}
+
+function createDiamond() {
+    const form = document.getElementById('diamondForm');
+    if (!form) {
+        return;
+    }
+
+    const formData = new FormData(form);
+
+    fetch('/create-diamond', {
+        method: 'POST',
+        body: formData
+    })
+    .then(async response => {
+        const text = await response.text();
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const extracted = extractErrorFromListHtml(text);
+        if (extracted) {
+            throw new Error(extracted);
+        }
+        updateDiamondListHtml(text);
+        ensureFormInCreateMode();
+        loadGraphData();
+    })
+    .catch(error => {
+        console.error('Error creating diamond:', error);
+        alert(`Error creating diamond: ${error.message}`);
+    });
+}
+
+function updateDiamond(diamondId) {
+    const form = document.getElementById('diamondForm');
+    if (!form) {
+        return;
+    }
+
+    const formData = new FormData(form);
+
+    fetch(`/diamonds/${diamondId}`, {
+        method: 'PUT',
+        body: formData
+    })
+    .then(async response => {
+        const text = await response.text();
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const extracted = extractErrorFromListHtml(text);
+        if (extracted) {
+            throw new Error(extracted);
+        }
+        updateDiamondListHtml(text);
+        ensureFormInCreateMode();
+        loadGraphData();
+    })
+    .catch(error => {
+        console.error('Error updating diamond:', error);
+        alert(`Error updating diamond: ${error.message}`);
+    });
+}
+
+function editDiamond(diamondId) {
+    fetch(`/diamonds/${diamondId}/edit`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            openModelerDrawer();
+            ensureCreateDiamondFormOpen();
+
+            document.getElementById('diamond_id').value = diamondId;
+            document.getElementById('label').value = data.label || '';
+            document.getElementById('notes').value = data.notes || '';
+            document.getElementById('color').value = data.color || '#4ecdc4';
+            document.getElementById('adversary_indicators').value = data.adversary_indicators || '';
+            document.getElementById('victimology_indicators').value = data.victimology_indicators || '';
+            document.getElementById('capability_indicators').value = data.capability_indicators || '';
+            document.getElementById('infrastructure_indicators').value = data.infrastructure_indicators || '';
+
+            if (data.adversary_indicators && data.adversary_indicators.trim()) {
+                ensureSectionOpen('adversary');
+            }
+            if (data.victimology_indicators && data.victimology_indicators.trim()) {
+                ensureSectionOpen('victimology');
+            }
+            if (data.capability_indicators && data.capability_indicators.trim()) {
+                ensureSectionOpen('capability');
+            }
+            if (data.infrastructure_indicators && data.infrastructure_indicators.trim()) {
+                ensureSectionOpen('infrastructure');
+            }
+
+            const form = document.getElementById('diamondForm');
+            if (!form) {
+                throw new Error('diamondForm not found');
+            }
+            form.setAttribute('method', 'PUT');
+
+            const titleEl = document.getElementById('diamondFormTitle');
+            if (titleEl) {
+                titleEl.textContent = 'Edit Diamond';
+            }
+            document.getElementById('createDiamondHeader').setAttribute('title', 'Click to collapse');
+
+            const submitButton = form.querySelector('button[type="submit"]');
+            if (submitButton) {
+                submitButton.textContent = 'Update Diamond';
+            }
+
+            if (!document.getElementById('cancelEdit') && submitButton) {
+                const cancelButton = document.createElement('button');
+                cancelButton.type = 'button';
+                cancelButton.id = 'cancelEdit';
+                cancelButton.textContent = 'Cancel';
+                cancelButton.className = 'btn btn-outline-secondary';
+                cancelButton.onclick = cancelEdit;
+                submitButton.parentNode.appendChild(cancelButton);
+            }
+
+            form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        })
+        .catch(error => {
+            console.error('Error loading diamond for edit:', error);
+            alert('Error loading diamond for editing. Please try again.');
+        });
+}
+
+function deleteDiamond(diamondId) {
+    if (!confirm('Are you sure you want to delete this diamond? This action cannot be undone.')) {
+        return;
+    }
+
+    fetch(`/diamonds/${diamondId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Failed to delete diamond');
+        }
+        return response.json();
+    })
+    .then(() => {
+        ensureFormInCreateMode();
+        loadGraphData();
+        return fetch('/diamonds/?query=');
+    })
+    .then(response => response.text())
+    .then(html => {
+        updateDiamondListHtml(html);
+    })
+    .catch(error => {
+        console.error('Error deleting diamond:', error);
+        alert('Error deleting diamond. Please try again.');
+    });
+}
+
+function removeAllDiamonds() {
+    if (!confirm('Are you sure you want to remove ALL diamond models? This action cannot be undone.')) {
+        return;
+    }
+
+    fetch('/diamonds/remove-all/', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Failed to remove all diamonds');
+        }
+        return response.json();
+    })
+    .then(() => {
+        cancelEdit();
+        loadGraphData();
+        updateDiamondListHtml('<p>No diamonds created yet. Create your first diamond above!</p>');
+    })
+    .catch(error => {
+        console.error('Error removing all diamonds:', error);
+        alert('Error removing all diamonds. Please try again.');
+    });
+}
+
+function clearAll() {
+    if (!confirm('Clear all diamonds and notes? This cannot be undone.')) {
+        return;
+    }
+    // Clear graph notes (client-side only)
+    graphNotes = [];
+    var overlay = document.getElementById('graph-notes-overlay');
+    if (overlay) overlay.innerHTML = '';
+    noteElementsById = {};
+    if (typeof updateNotesOverlay === 'function') updateNotesOverlay(false);
+    // Delete all diamonds (and edges/vertices)
+    fetch('/diamonds/remove-all/', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(function(response) {
+        if (!response.ok) throw new Error('Failed to clear diamonds');
+        return response.json();
+    })
+    .then(function() {
+        if (typeof cancelEdit === 'function') cancelEdit();
+        loadGraphData();
+        updateDiamondListHtml('<p>No diamonds created yet. Create your first diamond above!</p>');
+        showSuccessMessage('All diamonds and notes cleared.');
+    })
+    .catch(function(err) {
+        console.error('Clear all error:', err);
+        alert('Failed to clear all. Please try again.');
+    });
+}
+
+function initGraph() {
+    cy = cytoscape({
+        container: document.getElementById('cyto-graph'),
+        elements: [],
+        style: [
+            {
+                selector: 'node',
+                style: {
+                    'background-color': 'data(color)',
+                    'background-opacity': 1,
+                    'border-width': 1,
+                    'border-color': '#1a1a1a',
+                    'label': 'data(label)',
+                    'text-valign': 'center',
+                    'text-halign': 'center',
+                    'color': 'white',
+                    'font-size': '8px',
+                    'font-weight': 'bold',
+                    'text-wrap': 'wrap',
+                    'text-max-width': '80px',
+                    'width': '90px',
+                    'height': '90px',
+                    'shape': 'diamond',
+                    'cursor': 'pointer'
+                }
+            },
+            {
+                selector: 'edge',
+                style: {
+                    'width': 0.75,
+                    'line-color': '#000000',
+                    'target-arrow-shape': 'none',
+                    'curve-style': 'bezier',
+                    'label': '',
+                    'font-size': '8px',
+                    'text-rotation': 'none',
+                    'text-margin-y': 'data(labelOffsetY)',
+                    'text-margin-x': 'data(labelOffsetX)',
+                    'text-background-color': '#ffffff',
+                    'text-background-opacity': 1,
+                    'text-background-padding': '8px',
+                    'text-background-shape': 'round-rectangle',
+                    'text-border-opacity': 0,
+                    'color': '#000000',
+                    'font-weight': 'normal',
+                    'source-endpoint': 'data(sourceEndpoint)',
+                    'target-endpoint': 'data(targetEndpoint)',
+                    'source-distance-from-node': 0,
+                    'target-distance-from-node': 0
+                }
+            },
+            {
+                selector: 'edge.manual',
+                style: {
+                    'line-color': '#000000',
+                    'target-arrow-shape': 'none',
+                    'width': 0.75,
+                    'text-rotation': 'none',
+                    'text-background-color': '#ffffff',
+                    'text-background-opacity': 1,
+                    'text-background-padding': '8px',
+                    'text-background-shape': 'round-rectangle',
+                    'text-border-opacity': 0,
+                    'color': '#000000'
+                }
+            }
+        ],
+        layout: {
+            name: 'cose',
+            animate: true,
+            animationDuration: 1000,
+            nodeRepulsion: 80000,
+            idealEdgeLength: 400,
+            nodeOverlap: 80,
+            gravity: 0.08,
+            nestingFactor: 1.2,
+            edgeElasticity: 50,
+            numIter: 2000,
+            padding: 80
+        },
+        // High resolution settings
+        pixelRatio: window.devicePixelRatio || 1,
+        renderer: {
+            name: 'canvas',
+            options: {
+                pixelRatio: window.devicePixelRatio || 1
+            }
+        }
+    });
+    
+    // Add click handlers
+    cy.on('tap', 'node', function(evt) {
+        const node = evt.target;
+        const nodeId = node.data('id');
+        
+        if (nodeId) {
+            // Extract diamond ID from node ID (format: "d1", "d2", etc.)
+            const diamondId = nodeId.replace('d', '');
+            console.log('Clicked diamond node:', nodeId, 'extracted ID:', diamondId);
+            
+            // Show the diamond details popup
+            viewDiamondDetails(diamondId);
+        }
+    });
+
+    // Hover tooltip: "Click to expand"
+    var tooltipEl = document.getElementById('node-hover-tooltip');
+    function showNodeTooltip(node) {
+        if (!tooltipEl || !cy) return;
+        var pos = node.renderedPosition();
+        tooltipEl.style.left = pos.x + 'px';
+        tooltipEl.style.top = (pos.y - 28) + 'px';
+        tooltipEl.style.transform = 'translate(-50%, 0)';
+        tooltipEl.classList.add('visible');
+        tooltipEl.setAttribute('aria-hidden', 'false');
+    }
+    function hideNodeTooltip() {
+        if (!tooltipEl) return;
+        tooltipEl.classList.remove('visible');
+        tooltipEl.setAttribute('aria-hidden', 'true');
+    }
+    cy.on('mouseover', 'node', function(evt) {
+        showNodeTooltip(evt.target);
+    });
+    cy.on('mouseout', 'node', function(evt) {
+        hideNodeTooltip();
+    });
+
+    // Handle window resize to maintain high resolution
+    window.addEventListener('resize', function() {
+        if (cy) {
+            cy.resize();
+            cy.fit();
+            updateEdgeLabelsOverlay();
+            updateNotesOverlay(true);
+        }
+    });
+
+    cy.on('pan zoom', function() {
+        updateEdgeLabelsOverlay();
+        updateNotesOverlay(true);
+    });
+
+    var overlayUpdateScheduled = false;
+    function scheduleEdgeLabelsOverlayUpdate() {
+        if (overlayUpdateScheduled) return;
+        overlayUpdateScheduled = true;
+        requestAnimationFrame(function() {
+            overlayUpdateScheduled = false;
+            updateEdgeLabelsOverlay();
+        });
+    }
+    cy.on('position', 'node', scheduleEdgeLabelsOverlayUpdate);
+    cy.on('drag', 'node', scheduleEdgeLabelsOverlayUpdate);
+    cy.on('free', 'node', function() { updateEdgeLabelsOverlay(); });
+    
+    // Load graph data
+    loadGraphData();
+}
+
+function loadGraphData() {
+    fetch('/graph')
+        .then(response => response.json())
+        .then(data => {
+            const baseNodes = (data.elements.nodes || []).map(node => ({
+                ...node,
+                data: {
+                    ...node.data,
+                    color: (node.data && node.data.color) ? node.data.color : '#4b49ac',
+                    label: (node.data && node.data.label) ? node.data.label : ''
+                }
+            }));
+
+            const baseEdges = (data.elements.edges || []).map((edge) => {
+                const label = (edge.data && edge.data.label) ? edge.data.label : '';
+                const endpoint = endpointFromEdgeLabel(label);
+                return {
+                    ...edge,
+                    data: {
+                        ...edge.data,
+                        sourceEndpoint: endpoint,
+                        targetEndpoint: endpoint
+                    }
+                };
+            });
+
+            cy.elements().remove();
+            cy.add({
+                ...data.elements,
+                nodes: baseNodes,
+                edges: baseEdges
+            });
+
+            cy.resize();
+            var nc = baseNodes.length || 1;
+            var ec = baseEdges.length || 1;
+            var repulsion = Math.max(80000, ec * 1500);
+            var edgeLen = Math.max(400, nc * 80);
+            cy.layout({
+                name: 'cose',
+                animate: true,
+                animationDuration: 1000,
+                nodeRepulsion: repulsion,
+                idealEdgeLength: edgeLen,
+                nodeOverlap: 80,
+                gravity: 0.08,
+                nestingFactor: 1.2,
+                edgeElasticity: 50,
+                numIter: 2000,
+                padding: 80
+            }).run().promise().then(function() {
+                cy.resize();
+                cy.fit(undefined, 60);
+                applyGraphDarkMode();
+                updateEdgeLabelsOverlay();
+                updateNotesOverlay(true);
+            });
+        })
+        .catch(error => console.error('Error loading graph:', error));
+}
+
+function resetLayout() {
+    var nc = cy.nodes().length || 1;
+    var ec = cy.edges().length || 1;
+    cy.layout({
+        name: 'cose',
+        animate: true,
+        animationDuration: 1000,
+        nodeRepulsion: Math.max(80000, ec * 1500),
+        idealEdgeLength: Math.max(400, nc * 80),
+        nodeOverlap: 80,
+        gravity: 0.08,
+        nestingFactor: 1.2,
+        edgeElasticity: 50,
+        numIter: 2000,
+        padding: 80
+    }).run();
+}
+
+function graphZoomIn() {
+    if (typeof cy !== 'undefined' && cy) {
+        var level = cy.zoom();
+        cy.zoom(level * 1.2);
+    }
+}
+
+function graphZoomOut() {
+    if (typeof cy !== 'undefined' && cy) {
+        var level = cy.zoom();
+        cy.zoom(level / 1.2);
+    }
+}
+
+function applyGraphDarkMode() {
+    if (typeof cy === 'undefined' || !cy) return;
+    var dark = document.body.classList.contains('dark-mode');
+    cy.edges().style('line-color', dark ? '#e4e4e7' : '#000000');
+    cy.edges().style('text-background-color', dark ? '#2d2d32' : '#ffffff');
+    cy.edges().style('color', dark ? '#e4e4e7' : '#000000');
+    updateEdgeLabelsOverlay();
+}
+
+var _expandedEdgeGroup = null;
+
+function updateEdgeLabelsOverlay() {
+    var overlay = document.getElementById('edge-labels-overlay');
+    if (!overlay || typeof cy === 'undefined' || !cy) return;
+    var pan = cy.pan();
+    var zoom = cy.zoom();
+    overlay.innerHTML = '';
+
+    var groups = {};
+    cy.edges().forEach(function(edge) {
+        var s = edge.data('source');
+        var t = edge.data('target');
+        var key = [s, t].sort().join('|');
+        if (!groups[key]) groups[key] = { edges: [], source: s, target: t };
+        groups[key].edges.push(edge);
+    });
+
+    Object.keys(groups).forEach(function(key) {
+        var group = groups[key];
+        var labels = group.edges.map(function(e) { return e.data('label'); }).filter(Boolean);
+        if (labels.length === 0) return;
+
+        var srcNode = cy.getElementById(group.source);
+        var tgtNode = cy.getElementById(group.target);
+        if (srcNode.empty() || tgtNode.empty()) return;
+        var sp = srcNode.position();
+        var tp = tgtNode.position();
+        var mx = (sp.x + tp.x) / 2;
+        var my = (sp.y + tp.y) / 2;
+        var x = mx * zoom + pan.x;
+        var y = my * zoom + pan.y;
+
+        var isExpanded = (_expandedEdgeGroup === key);
+
+        var wrapper = document.createElement('div');
+        wrapper.className = 'edge-group-wrapper';
+        wrapper.style.left = x + 'px';
+        wrapper.style.top = y + 'px';
+
+        var badge = document.createElement('div');
+        badge.className = 'edge-group-badge';
+        badge.textContent = labels.length + ' shared indicator' + (labels.length !== 1 ? 's' : '');
+        badge.addEventListener('click', function(e) {
+            e.stopPropagation();
+            _expandedEdgeGroup = isExpanded ? null : key;
+            updateEdgeLabelsOverlay();
+        });
+        wrapper.appendChild(badge);
+
+        if (isExpanded) {
+            var list = document.createElement('div');
+            list.className = 'edge-group-list';
+            labels.forEach(function(lbl) {
+                var item = document.createElement('div');
+                item.className = 'edge-group-item';
+                item.textContent = lbl;
+                list.appendChild(item);
+            });
+            wrapper.appendChild(list);
+        }
+
+        overlay.appendChild(wrapper);
+    });
+}
+
+document.addEventListener('click', function() {
+    if (_expandedEdgeGroup !== null) {
+        _expandedEdgeGroup = null;
+        updateEdgeLabelsOverlay();
+    }
+});
+
+// View diamond details function (for graph clicks)
+function viewDiamondDetails(diamondId) {
+    console.log('Loading diamond details for ID:', diamondId);
+    
+    // Show loading state
+    document.getElementById('popupDiamondContent').innerHTML = '<p class="popup-message">Loading diamond details…</p>';
+    document.getElementById('diamondDetailsPopup').style.display = 'flex';
+    
+    // Fetch diamond details
+    fetch(`/diamonds/${diamondId}/details`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Received diamond details:', data);
+            displayDiamondDetails(data);
+        })
+        .catch(error => {
+            console.error('Error loading diamond details:', error);
+            document.getElementById('popupDiamondContent').innerHTML =
+                '<p class="popup-message popup-error">Error loading diamond details. Please try again.</p>';
+        });
+}
+
+function displayDiamondDetails(data) {
+    const adversaryIndicators = Array.isArray(data.adversary_indicators) ? data.adversary_indicators : [];
+    const victimologyIndicators = Array.isArray(data.victimology_indicators) ? data.victimology_indicators : [];
+    const capabilityIndicators = Array.isArray(data.capability_indicators) ? data.capability_indicators : [];
+    const infrastructureIndicators = Array.isArray(data.infrastructure_indicators) ? data.infrastructure_indicators : [];
+    
+    const color = data.color || '#4b49ac';
+    const created = data.created_at ? new Date(data.created_at).toLocaleString() : '—';
+    const updated = data.updated_at ? new Date(data.updated_at).toLocaleString() : null;
+    
+    function section(title, indicators, emptyText) {
+        const tags = indicators.length > 0
+            ? indicators.map(ind => `<span class="popup-indicator-tag">${escapeHtml(ind)}</span>`).join('')
+            : `<p class="popup-no-indicators">${emptyText}</p>`;
+        return `
+            <div class="popup-vertex-section">
+                <h4 class="popup-vertex-title">${escapeHtml(title)}</h4>
+                <div class="popup-indicators">${tags}</div>
+            </div>`;
+    }
+    
+    const content = `
+        <div class="popup-diamond-details">
+            <div class="popup-diamond-header">
+                <div class="popup-diamond-swatch" style="background-color: ${escapeHtml(color)};"></div>
+                <h3 class="popup-diamond-title">${escapeHtml(data.label)}</h3>
+            </div>
+            ${data.notes ? `<p class="popup-diamond-notes">${escapeHtml(data.notes)}</p>` : ''}
+            <div class="popup-diamond-meta">
+                <p><strong>Created:</strong> ${escapeHtml(created)}</p>
+                ${updated ? `<p><strong>Updated:</strong> ${escapeHtml(updated)}</p>` : ''}
+            </div>
+            ${section('Adversary', adversaryIndicators, 'No adversary indicators')}
+            ${section('Victimology', victimologyIndicators, 'No victimology indicators')}
+            ${section('Capability', capabilityIndicators, 'No capability indicators')}
+            ${section('Infrastructure', infrastructureIndicators, 'No infrastructure indicators')}
+        </div>`;
+    
+    document.getElementById('popupDiamondLabel').textContent = data.label;
+    document.getElementById('popupDiamondContent').innerHTML = content;
+}
+
+function escapeHtml(text) {
+    if (text == null) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function closeDiamondDetails() {
+    document.getElementById('diamondDetailsPopup').style.display = 'none';
+}
+
+function openOpenAIKeyModal() {
+    document.getElementById('openAIKeyInput').value = '';
+    document.getElementById('openAIKeyMessage').style.display = 'none';
+    document.getElementById('openAIKeyModal').style.display = 'flex';
+    document.getElementById('openAIKeyInput').focus();
+}
+
+function closeOpenAIKeyModal() {
+    document.getElementById('openAIKeyModal').style.display = 'none';
+}
+
+function saveOpenAIKey() {
+    var input = document.getElementById('openAIKeyInput');
+    var msgEl = document.getElementById('openAIKeyMessage');
+    var key = (input.value || '').trim();
+    if (!key) {
+        msgEl.textContent = 'Please enter an API key.';
+        msgEl.style.display = 'block';
+        msgEl.style.color = '#c00';
+        return;
+    }
+    fetch('/api/settings/openai-api-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ api_key: key })
+    })
+    .then(function(r) {
+        if (!r.ok) return r.json().then(function(d) { throw new Error(d.detail || 'Failed'); });
+        return r.json();
+    })
+    .then(function(data) {
+        msgEl.textContent = data.message || 'API key saved and reloaded.';
+        msgEl.style.color = '#0a0';
+        msgEl.style.display = 'block';
+        input.value = '';
+        setTimeout(closeOpenAIKeyModal, 1200);
+    })
+    .catch(function(err) {
+        msgEl.textContent = err.message || 'Failed to save API key.';
+        msgEl.style.color = '#c00';
+        msgEl.style.display = 'block';
+    });
+}
+
+function regenerateLinks() {
+    if (confirm('This will regenerate all automatic links with improved labeling. Continue?')) {
+        fetch('/regenerate-links', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            alert('Links regenerated successfully!');
+            loadGraphData(); // Refresh the graph
+        })
+        .catch(error => {
+            console.error('Error regenerating links:', error);
+            alert('Error regenerating links. Check console for details.');
+        });
+    }
+}
+
+// Initialize graph when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    initGraph();
+    ensureFormInCreateMode();
+
+    const form = document.getElementById('diamondForm');
+    if (form) {
+        form.addEventListener('submit', function(event) {
+            event.preventDefault();
+            const diamondId = document.getElementById('diamond_id').value;
+            const isUpdate = diamondId && String(diamondId).trim() !== '';
+            if (isUpdate) {
+                updateDiamond(diamondId);
+            } else {
+                createDiamond();
+            }
+        });
+    }
+
+    const createHeader = document.getElementById('createDiamondHeader');
+    if (createHeader) {
+        createHeader.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                toggleCreateDiamondForm();
+            }
+        });
+    }
+
+    document.addEventListener('darkmodechange', function() {
+        applyGraphDarkMode();
+    });
+
+    // Close popup when clicking outside
+    document.addEventListener('click', function(event) {
+        const popup = document.getElementById('diamondDetailsPopup');
+        if (event.target === popup) {
+            closeDiamondDetails();
+        }
+        const keyModal = document.getElementById('openAIKeyModal');
+        if (keyModal && event.target === keyModal) {
+            closeOpenAIKeyModal();
+        }
+    });
+    
+    // Close popup/drawer with Escape key
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            const popup = document.getElementById('diamondDetailsPopup');
+            if (popup && popup.style.display !== 'none') {
+                closeDiamondDetails();
+                return;
+            }
+
+            const ws = getWorkspace();
+            if (ws && ws.classList.contains('drawer-open')) {
+                closeModelerDrawer();
+            }
+        }
+    });
+});
+
+// Export graph as high resolution PNG
+function exportGraph() {
+    if (!cy) {
+        alert('Graph not loaded yet. Please wait and try again.');
+        return;
+    }
+    
+    try {
+        // Show loading state
+        const exportButton = document.querySelector('button[onclick="exportGraph()"]');
+        const originalText = exportButton.textContent;
+        exportButton.textContent = 'Exporting...';
+        exportButton.disabled = true;
+        
+        // Export with high resolution settings
+        const png64 = cy.png({
+            output: 'base64',
+            bg: 'white',
+            full: true,
+            scale: 2, // 2x scale for high resolution
+            maxWidth: 4096,
+            maxHeight: 4096
+        });
+        
+        // Create download link
+        const link = document.createElement('a');
+        link.download = `diamond-model-graph-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.png`;
+        link.href = 'data:image/png;base64,' + png64;
+        
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Reset button state
+        exportButton.textContent = originalText;
+        exportButton.disabled = false;
+        
+        // Show success message
+        showSuccessMessage('Graph exported successfully!');
+        
+    } catch (error) {
+        console.error('Export error:', error);
+        alert('Error exporting graph. Please try again.');
+        
+        // Reset button state
+        const exportButton = document.querySelector('button[onclick="exportGraph()"]');
+        exportButton.textContent = 'Export as PNG';
+        exportButton.disabled = false;
+    }
+}
+
+function exportAnalysisJson() {
+    var btn = document.querySelector('button[onclick="exportAnalysisJson()"]');
+    var orig = btn ? btn.textContent : '';
+    if (btn) { btn.textContent = 'Exporting...'; btn.disabled = true; }
+    fetch('/api/export-analysis')
+        .then(function(r) { return r.ok ? r.json() : Promise.reject(new Error('Export failed')); })
+        .then(function(data) {
+            var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'diamond-model-analysis-' + (new Date().toISOString().slice(0, 10)) + '.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+            showSuccessMessage('Analysis exported as JSON.');
+        })
+        .catch(function(e) {
+            console.error(e);
+            alert('Export failed: ' + (e.message || 'Please try again.'));
+        })
+        .finally(function() {
+            if (btn) { btn.textContent = orig; btn.disabled = false; }
+        });
+}
+
+function importAnalysisJson(fileInput) {
+    if (!fileInput || !fileInput.files || !fileInput.files[0]) return;
+    var file = fileInput.files[0];
+    var btn = document.querySelector('button[onclick="document.getElementById(\'import-analysis-file\').click()"]');
+    if (btn) { btn.textContent = 'Importing...'; btn.disabled = true; }
+    var reader = new FileReader();
+    reader.onload = function() {
+        var data;
+        try {
+            data = JSON.parse(reader.result);
+        } catch (e) {
+            alert('Invalid JSON file.');
+            if (btn) { btn.textContent = 'Import graph'; btn.disabled = false; }
+            fileInput.value = '';
+            return;
+        }
+        fetch('/api/import-analysis', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(function(r) {
+            if (!r.ok) return r.json().then(function(d) { throw new Error(d.detail || 'Import failed'); });
+            return r.json();
+        })
+        .then(function(result) {
+            showSuccessMessage('Imported ' + (result.imported_diamonds || 0) + ' diamonds, ' + (result.imported_edges || 0) + ' links.');
+            loadGraphData();
+            fetch('/diamonds/').then(function(r) { return r.text(); }).then(function(html) {
+                var listEl = document.getElementById('diamond-list');
+                if (listEl) listEl.innerHTML = html;
+            });
+        })
+        .catch(function(e) {
+            alert('Import failed: ' + (e.message || 'Please try again.'));
+        })
+        .finally(function() {
+            if (btn) { btn.textContent = 'Import graph'; btn.disabled = false; }
+            fileInput.value = '';
+        });
+    };
+    reader.readAsText(file);
+}
+
+// Conduct attribution analysis
+function conductAttribution() {
+    if (confirm('This will conduct attribution analysis on all current diamond models. This may take several minutes. Continue?')) {
+        // Show loading state
+        const attributionButton = document.querySelector('button[onclick="conductAttribution()"]');
+        const originalText = attributionButton.textContent;
+        attributionButton.textContent = 'Conducting Attribution...';
+        attributionButton.disabled = true;
+        
+        // Call the attribution endpoint
+        fetch('/conduct-attribution', { method: 'POST' })
+        .then(function(response) {
+            var contentType = response.headers.get('Content-Type') || '';
+            if (response.ok && contentType.indexOf('application/pdf') !== -1) {
+                return response.blob().then(function(blob) {
+                    var disp = response.headers.get('Content-Disposition');
+                    var filename = 'attribution_report.pdf';
+                    if (disp) {
+                        var m = disp.match(/filename="?([^";\n]+)"?/);
+                        if (m) filename = m[1].trim();
+                    }
+                    var url = URL.createObjectURL(blob);
+                    var a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    return { downloaded: true };
+                });
+            }
+            // Non-PDF response: try to get error message from JSON
+            return response.text().then(function(text) {
+                var data = null;
+                try {
+                    data = text ? JSON.parse(text) : null;
+                } catch (e) { /* ignore */ }
+                var msg = (data && data.message) ? data.message : null;
+                if (!response.ok) {
+                    throw new Error(msg || 'Server error (HTTP ' + response.status + '). Check the terminal where the app is running.');
+                }
+                return data;
+            });
+        })
+        .then(function(data) {
+            attributionButton.textContent = originalText;
+            attributionButton.disabled = false;
+            if (data && data.downloaded) {
+                showSuccessMessage('Attribution report downloaded.');
+            } else if (data && data.success) {
+                showSuccessMessage('Attribution analysis completed.');
+            } else if (data && data.message) {
+                alert('Error conducting attribution: ' + data.message);
+            }
+        })
+        .catch(function(error) {
+            console.error('Error conducting attribution:', error);
+            var msg = (error && error.message) ? error.message : 'Check the browser console and the terminal where the app is running.';
+            alert('Error conducting attribution: ' + msg);
+            attributionButton.textContent = originalText;
+            attributionButton.disabled = false;
+        });
+    }
+}
+
+// Show success message
+function showSuccessMessage(message) {
+    // Create success popup
+    const popup = document.createElement('div');
+    popup.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #4ecdc4;
+        color: white;
+        padding: 15px 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        z-index: 10000;
+        font-weight: bold;
+        opacity: 0;
+        transform: translateX(100%);
+        transition: all 0.3s ease;
+    `;
+    popup.textContent = message;
+    document.body.appendChild(popup);
+    
+    // Animate in
+    setTimeout(() => {
+        popup.style.opacity = '1';
+        popup.style.transform = 'translateX(0)';
+    }, 100);
+    
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+        popup.style.opacity = '0';
+        popup.style.transform = 'translateX(100%)';
+        setTimeout(() => {
+            if (popup.parentNode) {
+                popup.parentNode.removeChild(popup);
+            }
+        }, 300);
+    }, 3000);
+}
+</script>
+{% endblock %}

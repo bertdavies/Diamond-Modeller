@@ -1,0 +1,109 @@
+<div class="card modeler-create-card">
+  <div class="modeler-create-header" id="createDiamondHeader" onclick="toggleCreateDiamondForm()" role="button" tabindex="0" title="Click to expand or collapse">
+    <span id="diamondFormTitle">Create New Diamond</span>
+    <span class="expand-icon" id="createDiamondExpandIcon">▼</span>
+  </div>
+  <div class="card-body modeler-create-body" id="create-diamond-form-content" style="display: none;">
+    <p class="modeler-create-description">Label, notes, color, and diamond vertices (adversary, victimology, capability, infrastructure).</p>
+
+    <form id="diamondForm" method="POST" class="forms-sample modeler-create-form">
+      <input type="hidden" id="diamond_id" name="diamond_id" value="">
+
+      <div class="modeler-create-row">
+        <div class="form-group modeler-form-group">
+          <label for="label">Label</label>
+          <input type="text" id="label" name="label" class="form-control form-control-sm" placeholder="e.g., FIN7 / Delivery" required>
+        </div>
+        <div class="form-group modeler-form-group">
+          <label for="notes">Notes</label>
+          <textarea id="notes" name="notes" class="form-control form-control-sm" placeholder="Optional" rows="1"></textarea>
+        </div>
+        <div class="form-group modeler-form-group modeler-form-group-color">
+          <label for="color">Color</label>
+          <input type="color" id="color" name="color" class="form-control form-control-color" value="#4ecdc4" title="Color">
+        </div>
+      </div>
+
+      <div class="vertex-section collapsible">
+        <div class="vertex-header" onclick="toggleSection('adversary')">
+          <span>Adversary</span>
+          <span class="expand-icon">▼</span>
+        </div>
+        <div class="vertex-content" id="adversary-content" style="display: none;">
+          <label for="adversary_indicators">Indicators (one per line)</label>
+          <textarea id="adversary_indicators" name="adversary_indicators" class="form-control form-control-sm indicator-textarea" placeholder="e.g. APT29, Cozy Bear"></textarea>
+        </div>
+      </div>
+
+      <div class="vertex-section collapsible">
+        <div class="vertex-header" onclick="toggleSection('victimology')">
+          <span>Victimology</span>
+          <span class="expand-icon">▼</span>
+        </div>
+        <div class="vertex-content" id="victimology-content" style="display: none;">
+          <label for="victimology_indicators">Indicators (one per line)</label>
+          <textarea id="victimology_indicators" name="victimology_indicators" class="form-control form-control-sm indicator-textarea" placeholder="e.g. victim@co.com, Windows 10"></textarea>
+        </div>
+      </div>
+
+      <div class="vertex-section collapsible">
+        <div class="vertex-header" onclick="toggleSection('capability')">
+          <span>Capability</span>
+          <span class="expand-icon">▼</span>
+        </div>
+        <div class="vertex-content" id="capability-content" style="display: none;">
+          <label for="capability_indicators">Indicators (one per line)</label>
+          <textarea id="capability_indicators" name="capability_indicators" class="form-control form-control-sm indicator-textarea" placeholder="e.g. Spear Phishing, PowerShell"></textarea>
+        </div>
+      </div>
+
+      <div class="vertex-section collapsible">
+        <div class="vertex-header" onclick="toggleSection('infrastructure')">
+          <span>Infrastructure</span>
+          <span class="expand-icon">▼</span>
+        </div>
+        <div class="vertex-content" id="infrastructure-content" style="display: none;">
+          <label for="infrastructure_indicators">Indicators (one per line)</label>
+          <textarea id="infrastructure_indicators" name="infrastructure_indicators" class="form-control form-control-sm indicator-textarea" placeholder="e.g. IP, domain, email"></textarea>
+        </div>
+      </div>
+
+      <div class="modeler-form-actions">
+        <button type="submit" class="btn btn-primary btn-sm">Create Diamond</button>
+        <button type="button" onclick="clearForm()" class="btn btn-outline-secondary btn-sm">Clear</button>
+        <button type="button" onclick="removeAllDiamonds()" class="btn btn-danger-soft btn-sm">Remove All</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card mt-3 modeler-diamonds-card">
+  <div class="card-body">
+    <h5 class="card-title modeler-section-title">Existing Diamonds</h5>
+    <div id="diamond-list">
+      {% include "diamond_list.html" %}
+    </div>
+  </div>
+</div>
+
+<div class="card mt-3 modeler-diamonds-card">
+  <div class="card-body py-2">
+    <button type="button" onclick="createNewNote()" class="btn btn-outline-primary btn-sm w-100">Create New Note</button>
+  </div>
+</div>
+
+<div class="card mt-3 modeler-controls-card">
+  <div class="card-body modeler-controls-body">
+    <h5 class="modeler-controls-title">Controls</h5>
+    <div class="modeler-controls-actions">
+      <button type="button" onclick="openOpenAIKeyModal()" class="btn btn-outline-secondary btn-sm modeler-control-btn">Set OpenAI API Key</button>
+      <button type="button" onclick="exportGraph()" class="btn btn-primary btn-sm modeler-control-btn">Export PNG</button>
+      <button type="button" onclick="exportAnalysisJson()" class="btn btn-outline-primary btn-sm modeler-control-btn">Export graph</button>
+      <button type="button" onclick="document.getElementById('import-analysis-file').click()" class="btn btn-outline-secondary btn-sm modeler-control-btn">Import graph</button>
+      <button type="button" onclick="conductAttribution()" class="btn btn-outline-danger btn-sm modeler-control-btn">Generate hypotheses</button>
+      <button type="button" onclick="clearAll()" class="btn btn-danger-soft btn-sm modeler-control-btn">Clear all</button>
+    </div>
+    <input type="file" id="import-analysis-file" accept=".json,application/json" class="d-none" onchange="importAnalysisJson(this)" aria-hidden="true">
+  </div>
+</div>
+

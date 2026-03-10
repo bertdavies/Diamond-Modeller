@@ -1,0 +1,54 @@
+# Environment & secrets
+.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+*.egg
+dist/
+build/
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Generated reports & output
+*.pdf
+attribution/data/*.json
+
+# Exported images
+*.png
+!examples/*.png
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Cursor
+.cursor/
+
+# Theme: only dist/assets is needed at runtime
+!templates/sa_theme/dist/
+!templates/sa_theme/dist/assets/
+!templates/sa_theme/dist/assets/**
+templates/sa_theme/dist/docs/
+templates/sa_theme/dist/pages/
+templates/sa_theme/dist/index.html
+templates/sa_theme/src/
+templates/sa_theme/package*.json

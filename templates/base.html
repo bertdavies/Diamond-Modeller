@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>{% block title %}Diamond Modeler{% endblock %}</title>
+    <link rel="stylesheet" href="/sa_theme/assets/vendors/feather/feather.css">
+    <link rel="stylesheet" href="/sa_theme/assets/vendors/mdi/css/materialdesignicons.min.css">
+    <link rel="stylesheet" href="/sa_theme/assets/vendors/ti-icons/css/themify-icons.css">
+    <link rel="stylesheet" href="/sa_theme/assets/vendors/font-awesome/css/font-awesome.min.css">
+    <link rel="stylesheet" href="/sa_theme/assets/vendors/typicons/typicons.css">
+    <link rel="stylesheet" href="/sa_theme/assets/vendors/simple-line-icons/css/simple-line-icons.css">
+    <link rel="stylesheet" href="/sa_theme/assets/vendors/css/vendor.bundle.base.css">
+    <link rel="stylesheet" href="/sa_theme/assets/vendors/bootstrap-datepicker/bootstrap-datepicker.min.css">
+    <link rel="stylesheet" href="/sa_theme/assets/css/style.css">
+    <link rel="shortcut icon" href="/sa_theme/assets/images/favicon.png" />
+    <style>
+      .navbar .navbar-menu-wrapper .navbar-nav .nav-item:first-child {
+        margin-left: 0;
+      }
+
+      .page-title {
+        font-size: 1.35rem;
+        margin-bottom: 0.25rem;
+      }
+
+      .subtle-text {
+        color: #6c757d;
+      }
+
+      .graph-container {
+        width: 100%;
+        height: 360px;
+        border: 1px solid #e0e0e0;
+        border-radius: 0.5rem;
+        background: #ffffff;
+      }
+
+      /* Graph page full viewport: no sidebar gap, no content padding, full height */
+      body.graph-page-active .page-body-wrapper {
+        padding: 97px 0 0 0;
+        height: 100vh;
+        min-height: 0;
+        display: flex;
+        flex-direction: row;
+      }
+      /* Align navbar "Diamond Modeler" with card title "Diamond Model Graph" (both at 1rem from left).
+         Hide brand wrapper completely so no gap or white box. */
+      body.graph-page-active .navbar .navbar-brand-wrapper {
+        display: none !important;
+      }
+      body.graph-page-active .navbar .navbar-menu-wrapper {
+        padding-left: 1rem;
+        flex: 1;
+        min-width: 0;
+        display: flex !important;
+        flex-wrap: nowrap;
+        justify-content: space-between;
+      }
+      body.graph-page-active .navbar .navbar-nav.ms-auto {
+        margin-left: auto;
+        flex-shrink: 0;
+      }
+
+      body.graph-page-active .main-panel {
+        width: 100%;
+        margin-left: 0;
+        flex: 1;
+        min-width: 0;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+
+      body.graph-page-active .content-wrapper {
+        padding: 0;
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .graph-page {
+        padding: 0;
+        margin: 0;
+        flex: 1;
+        min-height: 0;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .graph-workspace {
+        position: relative;
+        flex: 1;
+        min-height: 0;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .graph-page .graph-card {
+        margin: 0;
+        flex: 1;
+        min-height: 0;
+        border-radius: 0;
+        border: none;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .graph-page .graph-card-body {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        padding: 1rem;
+      }
+
+      .graph-container-wrapper {
+        position: relative;
+        flex: 1;
+        min-height: 0;
+        width: 100%;
+      }
+
+      .graph-container-wrapper .graph-container {
+        position: absolute;
+        inset: 0;
+      }
+
+      .graph-container--full {
+        flex: 1;
+        min-height: 0;
+        width: 100%;
+        height: 100%;
+      }
+
+      .graph-zoom-controls {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        z-index: 15;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+      }
+
+      .graph-zoom-btn {
+        width: 2rem;
+        height: 2rem;
+        padding: 0;
+        font-size: 1.25rem;
+        line-height: 1;
+        border: 1px solid rgba(0,0,0,0.15);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      }
+
+      .graph-zoom-btn:hover {
+        background-color: #f0f0f0;
+      }
+
+      .edge-labels-overlay {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 5;
+        overflow: hidden;
+      }
+
+      .edge-group-wrapper {
+        position: absolute;
+        transform: translate(-50%, -50%);
+        z-index: 6;
+        pointer-events: auto;
+      }
+      .edge-group-badge {
+        white-space: nowrap;
+        padding: 4px 10px;
+        background: #f0f0f0;
+        border: 1px solid #d0d0d0;
+        border-radius: 12px;
+        font-size: 10px;
+        font-weight: 600;
+        color: #333;
+        cursor: pointer;
+        user-select: none;
+        line-height: 1.3;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        transition: background 0.15s;
+      }
+      .edge-group-badge:hover {
+        background: #e0e0e0;
+      }
+      body.dark-mode .edge-group-badge {
+        background: #3a3a40;
+        border-color: #555;
+        color: #e4e4e7;
+      }
+      body.dark-mode .edge-group-badge:hover {
+        background: #48484f;
+      }
+      .edge-group-list {
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 50%;
+        transform: translateX(-50%);
+        background: #fff;
+        border: 1px solid #d0d0d0;
+        border-radius: 8px;
+        padding: 6px 0;
+        max-height: 240px;
+        overflow-y: auto;
+        min-width: 180px;
+        max-width: 300px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        z-index: 10;
+      }
+      body.dark-mode .edge-group-list {
+        background: #2d2d32;
+        border-color: #555;
+      }
+      .edge-group-item {
+        padding: 3px 12px;
+        font-size: 10px;
+        color: #333;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: 1.4;
+      }
+      .edge-group-item:nth-child(odd) {
+        background: rgba(0,0,0,0.02);
+      }
+      body.dark-mode .edge-group-item {
+        color: #e4e4e7;
+      }
+      body.dark-mode .edge-group-item:nth-child(odd) {
+        background: rgba(255,255,255,0.03);
+      }
+
+      .node-hover-tooltip {
+        position: absolute;
+        pointer-events: none;
+        z-index: 10;
+        padding: 4px 8px;
+        font-size: 11px;
+        font-weight: 500;
+        color: #374151;
+        background: #ffffff;
+        border-radius: 6px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.06);
+        white-space: nowrap;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.15s ease, visibility 0.15s ease, transform 0.15s ease;
+      }
+      .node-hover-tooltip.visible {
+        opacity: 1;
+        visibility: visible;
+      }
+      body.dark-mode .node-hover-tooltip {
+        color: #e4e4e7;
+        background: #2d2d32;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.08);
+      }
+
+      .graph-notes-overlay {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 8;
+        overflow: hidden;
+      }
+      .graph-notes-overlay .graph-note {
+        pointer-events: auto;
+      }
+      .graph-note {
+        position: absolute;
+        top: 0;
+        left: 0;
+        min-width: 120px;
+        max-width: 280px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.08);
+        border-radius: 8px;
+        overflow: hidden;
+        background: #ffffff;
+      }
+      body.dark-mode .graph-note {
+        background: #2d2d32;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.1);
+      }
+      .graph-note-header {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        padding: 4px 4px 2px 8px;
+        cursor: move;
+        min-height: 24px;
+        background: rgba(0,0,0,0.04);
+      }
+      body.dark-mode .graph-note-header {
+        background: rgba(255,255,255,0.06);
+      }
+      .graph-note-close {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        border: none;
+        background: transparent;
+        color: #6c757d;
+        font-size: 1.1rem;
+        line-height: 1;
+        cursor: pointer;
+        border-radius: 4px;
+        padding: 0;
+      }
+      .graph-note-close:hover {
+        background: rgba(0,0,0,0.08);
+        color: #374151;
+      }
+      body.dark-mode .graph-note-close {
+        color: #a1a1aa;
+      }
+      body.dark-mode .graph-note-close:hover {
+        background: rgba(255,255,255,0.1);
+        color: #e4e4e7;
+      }
+      .graph-note-body {
+        padding: 8px 10px 10px;
+        min-height: 32px;
+        font-size: 0.8125rem;
+        line-height: 1.4;
+        color: #374151;
+        white-space: pre-wrap;
+        word-break: break-word;
+        outline: none;
+      }
+      body.dark-mode .graph-note-body {
+        color: #e4e4e7;
+      }
+      .graph-note-body:empty::before {
+        content: attr(data-placeholder);
+        color: #9ca3af;
+      }
+      body.dark-mode .graph-note-body:empty::before {
+        color: #71717a;
+      }
+
+      .modeler-toggle {
+        position: absolute;
+        top: 50%;
+        left: 0;
+        transform: translateY(-50%);
+        z-index: 25;
+        width: 28px;
+        min-width: 28px;
+        padding: 0.5rem 0.25rem;
+        border-radius: 0 6px 6px 0;
+        box-shadow: 2px 0 8px rgba(0,0,0,0.15);
+      }
+
+      .graph-workspace.drawer-open .modeler-toggle {
+        display: none;
+      }
+
+      .modeler-drawer-close {
+        position: absolute;
+        top: 50%;
+        right: 0;
+        transform: translate(100%, -50%);
+        z-index: 25;
+        width: 28px;
+        min-width: 28px;
+        padding: 0.5rem 0.25rem;
+        border-radius: 0 6px 6px 0;
+        box-shadow: 2px 0 8px rgba(0,0,0,0.15);
+      }
+
+      .modeler-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(14, 20, 40, 0.45);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 180ms ease;
+        z-index: 10;
+        border-radius: 0.75rem;
+      }
+
+      .modeler-drawer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        width: min(440px, 92vw);
+        transform: translateX(-105%);
+        transition: transform 220ms ease;
+        z-index: 20;
+        overflow-y: auto;
+        padding-right: 0.75rem;
+      }
+
+      .graph-workspace.drawer-open .modeler-backdrop {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .graph-workspace.drawer-open .modeler-drawer {
+        transform: translateX(0);
+      }
+
+      .modeler-controls-body {
+        padding: 0.75rem 1rem;
+      }
+      .modeler-controls-title {
+        font-size: 0.8125rem;
+        font-weight: 600;
+        margin: 0 0 0.5rem 0;
+        color: inherit;
+      }
+      .modeler-controls-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+      }
+      .modeler-control-btn {
+        width: 100%;
+        margin: 0;
+        text-align: center;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .modeler-section-title {
+        font-size: 1rem;
+        margin-bottom: 0.75rem;
+        font-weight: 600;
+      }
+
+      .modeler-create-card {
+        border: 1px solid #e5e7eb;
+        border-radius: 0.5rem;
+        overflow: hidden;
+      }
+
+      .modeler-create-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.6rem 0.75rem;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 1rem;
+        background: #fafafa;
+        border-bottom: 1px solid #e5e7eb;
+        transition: background-color 0.15s ease;
+      }
+
+      .modeler-create-header:hover {
+        background: #f0f0f0;
+      }
+
+      .modeler-create-body {
+        padding: 0.75rem;
+        border-top: none;
+      }
+
+      .modeler-create-description {
+        font-size: 0.8125rem;
+        color: #6c757d;
+        margin-bottom: 0.75rem;
+        line-height: 1.4;
+      }
+
+      .modeler-create-form .vertex-section {
+        margin-bottom: 0.75rem;
+      }
+
+      .modeler-create-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+      }
+
+      .modeler-form-group {
+        flex: 1;
+        min-width: 0;
+        margin-bottom: 0;
+      }
+
+      .modeler-form-group label {
+        font-size: 0.8125rem;
+        font-weight: 500;
+        margin-bottom: 0.25rem;
+        display: block;
+      }
+
+      .modeler-form-group-color {
+        flex: 0 0 auto;
+        width: 4.5rem;
+      }
+
+      .modeler-form-group-color .form-control-color {
+        width: 100%;
+        height: 2rem;
+        padding: 0.15rem;
+        cursor: pointer;
+      }
+
+      .modeler-form-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+      }
+
+      .diamond-list-item .card-body {
+        padding: 0.5rem 0.75rem;
+      }
+
+      .diamond-list-item-main {
+        cursor: pointer;
+        padding: 0.25rem 0.5rem;
+        margin: -0.25rem -0.5rem;
+        border-radius: 0.375rem;
+        transition: background-color 0.15s ease;
+      }
+
+      .diamond-list-item-main:hover {
+        background-color: rgba(75, 73, 172, 0.08);
+      }
+
+      .diamond-list-item-main:focus {
+        outline: none;
+        background-color: rgba(75, 73, 172, 0.12);
+      }
+
+      .diamond-list-color {
+        width: 14px;
+        height: 14px;
+        transform: rotate(45deg);
+        border: 1px solid rgba(0,0,0,0.2);
+        flex-shrink: 0;
+      }
+
+      .diamond-list-actions {
+        flex-shrink: 0;
+      }
+
+      .diamond-list-btn {
+        width: 28px;
+        height: 28px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.375rem;
+      }
+
+      .diamond-list-btn .mdi {
+        font-size: 1.1rem;
+      }
+
+      .diamond-list-btn.btn-outline-danger .mdi {
+        font-size: 1rem;
+      }
+
+      .vertex-section {
+        border: 1px solid #e5e7eb;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+        background: #ffffff;
+      }
+
+      .vertex-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.6rem 0.9rem;
+        cursor: pointer;
+        font-weight: 600;
+      }
+
+      .vertex-content {
+        padding: 0 0.9rem 0.9rem 0.9rem;
+        border-top: 1px solid #eef2f7;
+      }
+
+      .indicator-textarea {
+        min-height: 96px;
+      }
+
+      .indicator-tag {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.2rem 0.5rem;
+        margin: 0.2rem;
+        border-radius: 999px;
+        background: rgba(75, 73, 172, 0.1);
+        color: #4b49ac;
+        font-size: 0.75rem;
+      }
+
+      .popup-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(14, 20, 40, 0.55);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1050;
+      }
+
+      .popup-content {
+        width: min(720px, 92vw);
+        background: #ffffff;
+        border-radius: 0.75rem;
+        box-shadow: 0 1.25rem 2.5rem rgba(0, 0, 0, 0.35);
+        max-height: 80vh;
+        overflow: hidden;
+      }
+
+      .popup-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.85rem 1.2rem;
+        border-bottom: 1px solid #e5e7eb;
+      }
+
+      .popup-body {
+        padding: 1.2rem;
+        overflow-y: auto;
+        max-height: 65vh;
+      }
+
+      .popup-close {
+        background: transparent;
+        border: none;
+        font-size: 1.4rem;
+        line-height: 1;
+        padding: 0.25rem;
+      }
+
+      .popup-diamond-details { padding: 0; }
+      .popup-diamond-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+      }
+      .popup-diamond-swatch {
+        width: 18px;
+        height: 18px;
+        transform: rotate(45deg);
+        border: 1px solid rgba(0,0,0,0.2);
+        flex-shrink: 0;
+      }
+      body.dark-mode .popup-diamond-swatch { border-color: rgba(255,255,255,0.25); }
+      .popup-diamond-title {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+        line-height: 1.3;
+      }
+      .popup-diamond-notes {
+        font-size: 0.8125rem;
+        color: #6c757d;
+        margin: 0 0 0.75rem 0;
+        font-style: italic;
+      }
+      body.dark-mode .popup-diamond-notes { color: #a1a1aa; }
+      .popup-diamond-meta {
+        font-size: 0.75rem;
+        color: #6c757d;
+        margin: 0 0 1rem 0;
+      }
+      body.dark-mode .popup-diamond-meta { color: #a1a1aa; }
+      .popup-diamond-meta p { margin: 0.2rem 0; }
+      .popup-vertex-section {
+        border: 1px solid #e5e7eb;
+        border-radius: 0.375rem;
+        margin-bottom: 0.5rem;
+        background: #fafafa;
+      }
+      body.dark-mode .popup-vertex-section {
+        border-color: #3f3f46;
+        background: #2d2d32;
+      }
+      .popup-vertex-title {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        color: #4b49ac;
+        padding: 0.5rem 0.75rem;
+        border-bottom: 1px solid #e5e7eb;
+        margin: 0;
+      }
+      body.dark-mode .popup-vertex-title {
+        color: #a5b4fc;
+        border-color: #3f3f46;
+      }
+      .popup-indicators {
+        padding: 0.5rem 0.75rem 0.6rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+      }
+      .popup-indicator-tag {
+        display: inline-block;
+        font-size: 0.75rem;
+        padding: 0.2rem 0.5rem;
+        border-radius: 0.25rem;
+        background: rgba(75, 73, 172, 0.1);
+        color: #4b49ac;
+      }
+      body.dark-mode .popup-indicator-tag {
+        background: rgba(165, 180, 252, 0.15);
+        color: #a5b4fc;
+      }
+      .popup-no-indicators {
+        font-size: 0.8125rem;
+        color: #6c757d;
+        margin: 0;
+        padding: 0.5rem 0.75rem;
+      }
+      body.dark-mode .popup-no-indicators { color: #a1a1aa; }
+
+      .popup-message {
+        margin: 0;
+        font-size: 0.9375rem;
+        color: #374151;
+      }
+      body.dark-mode .popup-message { color: #e4e4e7; }
+      .popup-message.popup-error { color: #dc2626; }
+      body.dark-mode .popup-message.popup-error { color: #f87171; }
+
+      .btn-danger-soft {
+        background: rgba(244, 67, 54, 0.1);
+        color: #f44336;
+        border: 1px solid rgba(244, 67, 54, 0.2);
+      }
+
+      .dark-mode-toggle { color: inherit; }
+      .dark-mode-toggle:hover { opacity: 0.85; }
+      .dark-mode-toggle .mdi { font-size: 1.35rem; }
+
+      body.dark-mode .dark-mode-icon-off { display: none !important; }
+      body.dark-mode .dark-mode-icon-on { display: inline-block !important; }
+
+      /* Dark mode */
+      body.dark-mode,
+      body.dark-mode .container-scroller,
+      body.dark-mode .page-body-wrapper,
+      body.dark-mode .main-panel,
+      body.dark-mode .content-wrapper {
+        background: #1a1a1e !important;
+      }
+
+      body.dark-mode .navbar,
+      body.dark-mode .navbar > *,
+      body.dark-mode .navbar .navbar-menu-wrapper,
+      body.dark-mode .navbar .navbar-brand-wrapper,
+      body.dark-mode .navbar .navbar-nav {
+        background: #1a1a1e !important;
+      }
+      body.dark-mode .navbar .navbar-nav.ms-auto {
+        flex-shrink: 0 !important;
+        display: flex !important;
+        visibility: visible !important;
+      }
+      body.dark-mode .navbar .nav-link,
+      body.dark-mode .navbar .btn-link.nav-link,
+      body.dark-mode .navbar a.btn-link {
+        color: #e4e4e7 !important;
+        visibility: visible !important;
+      }
+      body.dark-mode .navbar .nav-link:hover,
+      body.dark-mode .navbar .btn-link.nav-link:hover {
+        color: #ffffff !important;
+      }
+      body.graph-page-active.dark-mode .navbar .navbar-brand-wrapper,
+      body.dark-mode.graph-page-active .navbar .navbar-brand-wrapper {
+        background: transparent !important;
+      }
+      body.dark-mode .navbar-toggler,
+      body.dark-mode .navbar .navbar-toggler {
+        background: transparent !important;
+        border-color: #3f3f46 !important;
+        color: #e4e4e7 !important;
+      }
+
+      body.dark-mode .welcome-text,
+      body.dark-mode .welcome-sub-text {
+        color: #e4e4e7 !important;
+      }
+
+      body.dark-mode .card,
+      body.dark-mode .modeler-create-card,
+      body.dark-mode .modeler-diamonds-card,
+      body.dark-mode .modeler-controls-card {
+        background: #252529 !important;
+        border-color: #3f3f46 !important;
+      }
+
+      body.dark-mode .card-title,
+      body.dark-mode .modeler-section-title,
+      body.dark-mode .modeler-controls-title,
+      body.dark-mode .modeler-create-header {
+        color: #e4e4e7 !important;
+      }
+
+      body.dark-mode .modeler-create-header {
+        background: #2d2d32 !important;
+        border-color: #3f3f46 !important;
+      }
+
+      body.dark-mode .modeler-create-header:hover {
+        background: #35353a !important;
+      }
+
+      body.dark-mode .modeler-create-description,
+      body.dark-mode .text-muted,
+      body.dark-mode .card-description {
+        color: #a1a1aa !important;
+      }
+
+      body.dark-mode .form-control,
+      body.dark-mode .form-control:focus {
+        background: #2d2d32 !important;
+        border-color: #3f3f46 !important;
+        color: #e4e4e7 !important;
+      }
+
+      body.dark-mode .form-control::placeholder {
+        color: #71717a !important;
+      }
+
+      body.dark-mode .vertex-section {
+        background: #2d2d32 !important;
+        border-color: #3f3f46 !important;
+      }
+
+      body.dark-mode .vertex-header {
+        color: #e4e4e7 !important;
+      }
+
+      body.dark-mode .vertex-content {
+        border-color: #3f3f46 !important;
+      }
+
+      body.dark-mode .btn-light,
+      body.dark-mode .graph-zoom-btn {
+        background: #2d2d32 !important;
+        border-color: #3f3f46 !important;
+        color: #e4e4e7 !important;
+      }
+
+      body.dark-mode .btn-light:hover,
+      body.dark-mode .graph-zoom-btn:hover {
+        background: #3f3f46 !important;
+      }
+
+      body.dark-mode .btn-outline-secondary {
+        border-color: #52525b !important;
+        color: #a1a1aa !important;
+      }
+
+      body.dark-mode .btn-outline-secondary:hover {
+        background: #3f3f46 !important;
+        color: #e4e4e7 !important;
+      }
+
+      body.dark-mode .graph-page .graph-card,
+      body.dark-mode .graph-card-body {
+        background: #252529 !important;
+      }
+      body.dark-mode .graph-zoom-controls {
+        background: transparent !important;
+      }
+
+      body.dark-mode #cyto-graph,
+      body.dark-mode .graph-container-wrapper .graph-container {
+        background: #1a1a1e !important;
+      }
+
+      body.dark-mode .modeler-drawer {
+        background: #1a1a1e !important;
+      }
+
+      body.dark-mode .popup-content {
+        background: #252529 !important;
+        border-color: #3f3f46 !important;
+      }
+
+      body.dark-mode .popup-header,
+      body.dark-mode .popup-body {
+        color: #e4e4e7 !important;
+        border-color: #3f3f46 !important;
+      }
+
+      body.dark-mode .diamond-list-item-main:hover {
+        background-color: rgba(255, 255, 255, 0.06) !important;
+      }
+
+      body.dark-mode .diamond-list-item-main:focus {
+        background-color: rgba(255, 255, 255, 0.1) !important;
+      }
+
+      @media (max-width: 768px) {
+        .graph-container {
+          height: 280px;
+        }
+
+        .graph-page {
+          height: calc(100vh - 60px);
+        }
+      }
+    </style>
+    {% block head %}{% endblock %}
+  </head>
+  <body class="with-welcome-text {% block body_class %}{% endblock %}">
+    <div class="container-scroller">
+      <nav class="navbar default-layout col-lg-12 col-12 p-0 fixed-top d-flex align-items-top flex-row">
+        <div class="text-center navbar-brand-wrapper d-flex align-items-center justify-content-start">
+          <div>
+            <a class="navbar-brand brand-logo fw-semibold" href="/"></a>
+            <a class="navbar-brand brand-logo-mini fw-semibold" href="/"></a>
+          </div>
+        </div>
+        <div class="navbar-menu-wrapper d-flex align-items-top">
+          <ul class="navbar-nav">
+            <li class="nav-item fw-semibold d-none d-lg-block ms-0">
+              <h1 class="welcome-text">Diamond Modeler</h1>
+            </li>
+          </ul>
+          <ul class="navbar-nav ms-auto align-items-center">
+            <li class="nav-item">
+              <a class="btn btn-link nav-link p-2" href="/about" title="About">About</a>
+            </li>
+            <li class="nav-item">
+              <button type="button" id="darkModeToggle" class="btn btn-link nav-link p-2 dark-mode-toggle" title="Toggle dark mode" aria-label="Toggle dark mode">
+                <span class="dark-mode-icon-off mdi mdi-weather-night" aria-hidden="true"></span>
+                <span class="dark-mode-icon-on mdi mdi-weather-sunny" aria-hidden="true" style="display: none;"></span>
+              </button>
+            </li>
+          </ul>
+          <button class="navbar-toggler navbar-toggler-right d-lg-none align-self-center" type="button" data-bs-toggle="offcanvas">
+            <span class="mdi mdi-menu"></span>
+          </button>
+        </div>
+      </nav>
+
+      <div class="container-fluid page-body-wrapper">
+        <div class="main-panel">
+          <div class="content-wrapper">
+            {% block content %}{% endblock %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="/sa_theme/assets/vendors/js/vendor.bundle.base.js"></script>
+    <script src="/sa_theme/assets/vendors/bootstrap-datepicker/bootstrap-datepicker.min.js"></script>
+    <script src="/sa_theme/assets/js/off-canvas.js"></script>
+    <script src="/sa_theme/assets/js/template.js"></script>
+    <script src="/sa_theme/assets/js/settings.js"></script>
+    <script src="/sa_theme/assets/js/hoverable-collapse.js"></script>
+    <script src="/sa_theme/assets/js/todolist.js"></script>
+    <script>
+      (function() {
+        var STORAGE_KEY = 'diamondModelerDarkMode';
+        function isDark() { return localStorage.getItem(STORAGE_KEY) === '1'; }
+        function apply() {
+          document.body.classList.toggle('dark-mode', isDark());
+        }
+        apply();
+        function notify() {
+          try {
+            document.dispatchEvent(new CustomEvent('darkmodechange', { detail: { dark: isDark() } }));
+          } catch (e) {}
+        }
+        document.getElementById('darkModeToggle')?.addEventListener('click', function() {
+          localStorage.setItem(STORAGE_KEY, isDark() ? '0' : '1');
+          apply();
+          notify();
+        });
+        notify();
+      })();
+    </script>
+    {% block scripts %}{% endblock %}
+  </body>
+</html>

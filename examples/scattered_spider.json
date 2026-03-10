@@ -1,0 +1,182 @@
+{
+    "version": "1.0",
+    "exported_at": "2026-03-10T04:12:40.044438Z",
+    "diamonds": [
+        {
+            "label": "KC1 Scattered Spider",
+            "notes": "Reconnaissance and social engineering preparation. Scattered Spider (UNC3944) targets IT helpdesks via phone-based social engineering, researching employees on LinkedIn and corporate directories to impersonate staff and request MFA resets.",
+            "color": "#3498db",
+            "adversary_indicators": [
+                "scattered spider",
+                "unc3944"
+            ],
+            "victimology_indicators": [
+                "it helpdesk staff",
+                "telecom and technology sectors"
+            ],
+            "capability_indicators": [
+                "phone-based social engineering",
+                "linkedin reconnaissance"
+            ],
+            "infrastructure_indicators": [
+                "spoofed caller id",
+                "sms phishing domains"
+            ]
+        },
+        {
+            "label": "KC3 Scattered Spider",
+            "notes": "Delivery via vishing (voice phishing). Operators call helpdesks posing as employees to obtain MFA resets or VPN credentials. SMS phishing with fake Okta login pages also used to harvest credentials.",
+            "color": "#e74c3c",
+            "adversary_indicators": [
+                "scattered spider",
+                "unc3944"
+            ],
+            "victimology_indicators": [
+                "it helpdesk staff",
+                "corporate vpn users"
+            ],
+            "capability_indicators": [
+                "vishing (voice phishing)",
+                "fake okta login pages"
+            ],
+            "infrastructure_indicators": [
+                "spoofed caller id",
+                "okta phishing domains"
+            ]
+        },
+        {
+            "label": "KC5 Scattered Spider",
+            "notes": "Installation and persistence. After obtaining credentials, operators enrol their own MFA devices, deploy remote access tools (AnyDesk, Splashtop), and create new accounts in Azure AD / Okta for persistent access.",
+            "color": "#f1c40f",
+            "adversary_indicators": [
+                "scattered spider",
+                "unc3944"
+            ],
+            "victimology_indicators": [
+                "corporate identity platforms",
+                "cloud-hosted environments"
+            ],
+            "capability_indicators": [
+                "mfa device enrolment",
+                "anydesk / splashtop rmm"
+            ],
+            "infrastructure_indicators": [
+                "attacker-enrolled mfa devices",
+                "azure ad / okta accounts"
+            ]
+        },
+        {
+            "label": "KC7 Scattered Spider",
+            "notes": "Actions on objectives. Primary goal is data theft for extortion. Operators exfiltrate sensitive data from cloud storage (SharePoint, OneDrive, code repos) and deploy ransomware (ALPHV/BlackCat) for double extortion.",
+            "color": "#2c3e50",
+            "adversary_indicators": [
+                "scattered spider",
+                "unc3944"
+            ],
+            "victimology_indicators": [
+                "telecom and technology sectors",
+                "corporate cloud data"
+            ],
+            "capability_indicators": [
+                "alphv/blackcat ransomware",
+                "cloud data exfiltration"
+            ],
+            "infrastructure_indicators": [
+                "alphv leak site",
+                "attacker-controlled cloud storage"
+            ]
+        }
+    ],
+    "edges": [
+        {
+            "src_label": "KC1 Scattered Spider",
+            "dst_label": "KC3 Scattered Spider",
+            "reason": "Adversary: scattered spider",
+            "is_manual": false
+        },
+        {
+            "src_label": "KC1 Scattered Spider",
+            "dst_label": "KC3 Scattered Spider",
+            "reason": "Adversary: unc3944",
+            "is_manual": false
+        },
+        {
+            "src_label": "KC1 Scattered Spider",
+            "dst_label": "KC3 Scattered Spider",
+            "reason": "Victimology: it helpdesk staff",
+            "is_manual": false
+        },
+        {
+            "src_label": "KC1 Scattered Spider",
+            "dst_label": "KC3 Scattered Spider",
+            "reason": "Infrastructure: spoofed caller id",
+            "is_manual": false
+        },
+        {
+            "src_label": "KC1 Scattered Spider",
+            "dst_label": "KC5 Scattered Spider",
+            "reason": "Adversary: scattered spider",
+            "is_manual": false
+        },
+        {
+            "src_label": "KC1 Scattered Spider",
+            "dst_label": "KC5 Scattered Spider",
+            "reason": "Adversary: unc3944",
+            "is_manual": false
+        },
+        {
+            "src_label": "KC1 Scattered Spider",
+            "dst_label": "KC7 Scattered Spider",
+            "reason": "Adversary: scattered spider",
+            "is_manual": false
+        },
+        {
+            "src_label": "KC1 Scattered Spider",
+            "dst_label": "KC7 Scattered Spider",
+            "reason": "Adversary: unc3944",
+            "is_manual": false
+        },
+        {
+            "src_label": "KC1 Scattered Spider",
+            "dst_label": "KC7 Scattered Spider",
+            "reason": "Victimology: telecom and technology sectors",
+            "is_manual": false
+        },
+        {
+            "src_label": "KC3 Scattered Spider",
+            "dst_label": "KC5 Scattered Spider",
+            "reason": "Adversary: scattered spider",
+            "is_manual": false
+        },
+        {
+            "src_label": "KC3 Scattered Spider",
+            "dst_label": "KC5 Scattered Spider",
+            "reason": "Adversary: unc3944",
+            "is_manual": false
+        },
+        {
+            "src_label": "KC3 Scattered Spider",
+            "dst_label": "KC7 Scattered Spider",
+            "reason": "Adversary: scattered spider",
+            "is_manual": false
+        },
+        {
+            "src_label": "KC3 Scattered Spider",
+            "dst_label": "KC7 Scattered Spider",
+            "reason": "Adversary: unc3944",
+            "is_manual": false
+        },
+        {
+            "src_label": "KC5 Scattered Spider",
+            "dst_label": "KC7 Scattered Spider",
+            "reason": "Adversary: scattered spider",
+            "is_manual": false
+        },
+        {
+            "src_label": "KC5 Scattered Spider",
+            "dst_label": "KC7 Scattered Spider",
+            "reason": "Adversary: unc3944",
+            "is_manual": false
+        }
+    ]
+}

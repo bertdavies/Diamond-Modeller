@@ -1,0 +1,827 @@
+{% extends "base.html" %}
+{% set active_page = "home" %}
+
+{% block title %}Diamond Editor{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-xl-6 col-lg-7 grid-margin stretch-card">
+        <div class="card">
+            <div class="card-body">
+                <h4 id="diamondFormTitle" class="card-title">Create New Diamond</h4>
+                <p class="card-description">Capture adversary, victimology, capability, and infrastructure details.</p>
+                <form id="diamondForm" method="POST" class="forms-sample">
+                    <input type="hidden" id="diamond_id" name="diamond_id" value="">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="label">Diamond Label</label>
+                                <input type="text" id="label" name="label" class="form-control" placeholder="e.g., FIN7 / Delivery" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="notes">Notes</label>
+                                <textarea id="notes" name="notes" class="form-control" placeholder="Optional notes" rows="1"></textarea>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-group">
+                                <label for="color">Color</label>
+                                <input type="color" id="color" name="color" class="form-control" value="#4ecdc4" title="Choose diamond color">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="vertex-section collapsible">
+                        <div class="vertex-header" onclick="toggleSection('adversary')">
+                            <span>Adversary</span>
+                            <span class="expand-icon">▼</span>
+                        </div>
+                        <div class="vertex-content" id="adversary-content" style="display: none;">
+                            <label for="adversary_indicators">Indicators (one per line)</label>
+                            <textarea
+                                id="adversary_indicators"
+                                name="adversary_indicators"
+                                class="form-control indicator-textarea"
+                                placeholder="e.g.,&#10;APT29&#10;Cozy Bear&#10;Russia&#10;Espionage"
+                            ></textarea>
+                        </div>
+                    </div>
+
+                    <div class="vertex-section collapsible">
+                        <div class="vertex-header" onclick="toggleSection('victimology')">
+                            <span>Victimology</span>
+                            <span class="expand-icon">▼</span>
+                        </div>
+                        <div class="vertex-content" id="victimology-content" style="display: none;">
+                            <label for="victimology_indicators">Indicators (one per line)</label>
+                            <textarea
+                                id="victimology_indicators"
+                                name="victimology_indicators"
+                                class="form-control indicator-textarea"
+                                placeholder="e.g.,&#10;victim@company.com&#10;Government Agency&#10;Windows 10&#10;Office 365"
+                            ></textarea>
+                        </div>
+                    </div>
+
+                    <div class="vertex-section collapsible">
+                        <div class="vertex-header" onclick="toggleSection('capability')">
+                            <span>Capability</span>
+                            <span class="expand-icon">▼</span>
+                        </div>
+                        <div class="vertex-content" id="capability-content" style="display: none;">
+                            <label for="capability_indicators">Indicators (one per line)</label>
+                            <textarea
+                                id="capability_indicators"
+                                name="capability_indicators"
+                                class="form-control indicator-textarea"
+                                placeholder="e.g.,&#10;Spear Phishing&#10;PowerShell&#10;Living off the Land&#10;Credential Theft"
+                            ></textarea>
+                        </div>
+                    </div>
+
+                    <div class="vertex-section collapsible">
+                        <div class="vertex-header" onclick="toggleSection('infrastructure')">
+                            <span>Infrastructure</span>
+                            <span class="expand-icon">▼</span>
+                        </div>
+                        <div class="vertex-content" id="infrastructure-content" style="display: none;">
+                            <label for="infrastructure_indicators">Indicators (one per line)</label>
+                            <textarea
+                                id="infrastructure_indicators"
+                                name="infrastructure_indicators"
+                                class="form-control indicator-textarea"
+                                placeholder="e.g.,&#10;192.168.1.100&#10;malicious-domain.com&#10;evil@phishing.com&#10;VPN Server"
+                            ></textarea>
+                        </div>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="submit" class="btn btn-primary">Create Diamond</button>
+                        <button type="button" onclick="clearForm()" class="btn btn-outline-secondary">Clear</button>
+                        <button type="button" onclick="removeAllDiamonds()" class="btn btn-danger-soft">Remove All</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-6 col-lg-5 grid-margin stretch-card">
+        <div class="card">
+            <div class="card-body">
+                <h4 class="card-title">Existing Diamonds</h4>
+                <div id="diamond-list">
+                    {% include "diamond_list.html" %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Graph preview removed from this page.
+
+function initGraph() {
+    const container = document.getElementById('cyto-graph');
+    if (!container) {
+        return;
+    }
+    cy = cytoscape({
+        container,
+        elements: [],
+        style: [
+            {
+                selector: 'node',
+                style: {
+                    'background-color': 'data(color)',
+                    'label': 'data(label)',
+                    'text-valign': 'center',
+                    'text-halign': 'center',
+                    'color': 'white',
+                    'font-size': '10px',
+                    'font-weight': 'bold',
+                    'width': '90px',
+                    'height': '90px',
+                    'shape': 'diamond',
+                    'cursor': 'pointer',
+                    'text-wrap': 'wrap',
+                    'text-max-width': '80px'
+                }
+            },
+            {
+                selector: 'node:hover',
+                style: {
+                    'border-width': '3px',
+                    'border-color': '#333',
+                    'border-style': 'solid'
+                }
+            },
+            {
+                selector: 'edge',
+                style: {
+                    'width': 2,
+                    'line-color': '#4ecdc4',
+                    'target-arrow-color': '#4ecdc4',
+                    'target-arrow-shape': 'triangle',
+                    'curve-style': 'bezier',
+                    'label': 'data(label)',
+                    'font-size': '9px',
+                    'text-rotation': 'autorotate',
+                    'text-margin-y': -15,
+                    'text-background-color': 'white',
+                    'text-background-opacity': 1,
+                    'text-background-padding': '2px',
+                    'text-border-color': '#4ecdc4',
+                    'text-border-width': 1,
+                    'text-border-opacity': 0.5,
+                    'color': 'red',
+                    'font-weight': 'bold'
+                }
+            },
+            {
+                selector: 'edge.manual',
+                style: {
+                    'line-color': '#ff6b6b',
+                    'target-arrow-color': '#ff6b6b',
+                    'width': 3,
+                    'text-background-color': 'white',
+                    'text-border-color': '#ff6b6b',
+                    'color': 'red'
+                }
+            }
+        ],
+        layout: {
+            name: 'cose',
+            animate: true,
+            animationDuration: 1000
+        },
+        // High resolution settings
+        pixelRatio: window.devicePixelRatio || 1,
+        renderer: {
+            name: 'canvas',
+            options: {
+                pixelRatio: window.devicePixelRatio || 1
+            }
+        }
+    });
+    
+    // Add click event handler for diamond nodes
+    cy.on('tap', 'node', function(evt) {
+        const node = evt.target;
+        const nodeId = node.data('id');
+        
+        if (nodeId) {
+            // Extract diamond ID from node ID (format: "d1", "d2", etc.)
+            const diamondId = nodeId.replace('d', '');
+            console.log('Clicked diamond node:', nodeId, 'extracted ID:', diamondId);
+            
+            // Show the diamond details popup instead of editing
+            viewDiamondDetails(diamondId);
+        }
+    });
+    
+    // Handle window resize to maintain high resolution
+    window.addEventListener('resize', function() {
+        if (cy) {
+            cy.resize();
+            cy.fit();
+        }
+    });
+    
+    // Load graph data
+    loadGraphData();
+    
+    // Add form submission handling
+    const form = document.querySelector('form');
+    if (form) {
+        console.log('Form found, adding submit listener');
+        form.addEventListener('submit', function(event) {
+            event.preventDefault();
+            console.log('Form submitted via JavaScript - preventDefault called');
+            
+            // Determine if this is create or update
+            const diamondId = document.getElementById('diamond_id').value;
+            const isUpdate = diamondId && diamondId !== '';
+            
+            console.log('Diamond ID:', diamondId, 'Is update:', isUpdate);
+            
+            if (isUpdate) {
+                // Update existing diamond
+                console.log('Calling updateDiamond');
+                updateDiamond(diamondId);
+            } else {
+                // Create new diamond
+                console.log('Calling createDiamond');
+                createDiamond();
+            }
+        });
+    } else {
+        console.error('Form not found!');
+    }
+    
+    // Add click debugging for submit button
+    const submitButton = form.querySelector('button[type="submit"]');
+    submitButton.addEventListener('click', function(event) {
+        console.log('=== SUBMIT BUTTON CLICKED ===');
+        console.log('Button text:', submitButton.textContent);
+        console.log('Form method:', form.getAttribute('method'));
+        console.log('================================');
+    });
+    
+    // Add HTMX request debugging
+    document.body.addEventListener('htmx:beforeRequest', function(event) {
+        console.log('=== HTMX REQUEST DEBUG ===');
+        console.log('Request method:', event.detail.verb);
+        console.log('Request URL:', event.detail.xhr.responseURL);
+        console.log('Element:', event.detail.elt);
+        console.log('================================');
+    });
+    
+    // Add HTMX response debugging
+    document.body.addEventListener('htmx:afterRequest', function(event) {
+        console.log('=== HTMX RESPONSE DEBUG ===');
+        console.log('Response status:', event.detail.xhr.status);
+        console.log('Response URL:', event.detail.xhr.responseURL);
+        console.log('Element:', event.detail.elt);
+        console.log('================================');
+        
+        // Reload graph after form submission
+        if (event.detail.xhr.status === 200 && event.detail.pathInfo.requestPath.includes('/diamonds/')) {
+            loadGraphData();
+        }
+    });
+    
+    // Add HTMX error debugging
+    document.body.addEventListener('htmx:responseError', function(event) {
+        console.log('=== HTMX ERROR DEBUG ===');
+        console.log('Error status:', event.detail.xhr.status);
+        console.log('Error URL:', event.detail.xhr.responseURL);
+        console.log('Error text:', event.detail.xhr.responseText);
+        console.log('Element:', event.detail.elt);
+        console.log('================================');
+    });
+}
+
+function loadGraphData() {
+    if (!cy) {
+        return;
+    }
+    fetch('/graph')
+        .then(response => response.json())
+        .then(data => {
+            cy.elements().remove();
+            cy.add(data.elements);
+            cy.layout({ name: 'cose' }).run();
+        })
+        .catch(error => console.error('Error loading graph:', error));
+}
+
+// Initialize graph when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    initGraph();
+    ensureFormInCreateMode();
+    
+    // Close popup when clicking outside
+    document.addEventListener('click', function(event) {
+        const popup = document.getElementById('diamondDetailsPopup');
+        if (event.target === popup) {
+            closeDiamondDetails();
+        }
+    });
+    
+    // Close popup with Escape key
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            const popup = document.getElementById('diamondDetailsPopup');
+            if (popup && popup.style.display !== 'none') {
+                closeDiamondDetails();
+            }
+        }
+    });
+});
+
+// Create diamond function
+function createDiamond() {
+    const form = document.querySelector('form');
+    if (!form) {
+        console.error('Form not found in createDiamond function!');
+        return;
+    }
+    
+    const formData = new FormData(form);
+    
+    console.log('Creating new diamond...');
+    
+    fetch('/create-diamond', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        console.log('Response status:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.text();
+    })
+    .then(html => {
+        // Check if the response contains an error message
+        if (html.includes('alert-error')) {
+            // Extract error message from HTML
+            const errorMatch = html.match(/<div class="alert alert-error"[^>]*>[\s\S]*?<strong>Error:<\/strong>\s*([^<]+)/);
+            if (errorMatch) {
+                throw new Error(errorMatch[1].trim());
+            } else {
+                throw new Error('Unknown error occurred');
+            }
+        }
+        
+        // Update the diamond list
+        const diamondListElement = document.getElementById('diamond-list');
+        if (diamondListElement) {
+            diamondListElement.outerHTML = html;
+        } else {
+            console.error('Diamond list element not found!');
+            // Fallback: reload the page
+            window.location.reload();
+            return;
+        }
+        
+        // Reset form
+        form.reset();
+        document.getElementById('diamond_id').value = '';
+        
+        // Reload graph
+        loadGraphData();
+        
+        // Show success message
+        showCreateSuccess();
+        
+        console.log('Diamond created successfully');
+    })
+    .catch(error => {
+        console.error('Error creating diamond:', error);
+        alert(`Error creating diamond: ${error.message}`);
+    });
+}
+
+// Update diamond function
+function updateDiamond(diamondId) {
+    const form = document.querySelector('form');
+    const formData = new FormData(form);
+    
+    console.log('Updating diamond ID:', diamondId);
+    
+    fetch(`/diamonds/${diamondId}`, {
+        method: 'PUT',
+        body: formData
+    })
+    .then(response => {
+        console.log('Response status:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.text();
+    })
+    .then(html => {
+        // Check if the response contains an error message
+        if (html.includes('alert-error')) {
+            // Extract error message from HTML
+            const errorMatch = html.match(/<div class="alert alert-error"[^>]*>[\s\S]*?<strong>Error:<\/strong>\s*([^<]+)/);
+            if (errorMatch) {
+                throw new Error(errorMatch[1].trim());
+            } else {
+                throw new Error('Unknown error occurred');
+            }
+        }
+        
+        // Update the diamond list
+        console.log('Looking for diamond-list element...');
+        const diamondListElement = document.getElementById('diamond-list');
+        console.log('Diamond list element found:', diamondListElement);
+        if (diamondListElement) {
+            console.log('Updating diamond list with HTML:', html.substring(0, 100) + '...');
+            diamondListElement.outerHTML = html;
+        } else {
+            console.error('Diamond list element not found! Available elements:', document.querySelectorAll('[id]'));
+            // Fallback: reload the page
+            window.location.reload();
+            return;
+        }
+        
+        // Reset form to create mode
+        ensureFormInCreateMode();
+        
+        // Reload graph
+        loadGraphData();
+        
+        // Show success message
+        showUpdateSuccess();
+        
+        console.log('Diamond updated successfully');
+    })
+    .catch(error => {
+        console.error('Error updating diamond:', error);
+        alert(`Error updating diamond: ${error.message}`);
+    });
+}
+
+// Ensure form is in create mode
+function ensureFormInCreateMode() {
+    const form = document.getElementById('diamondForm');
+    if (!form) {
+        console.error('diamondForm not found; cannot reset to create mode');
+        return;
+    }
+    console.log('=== ENSURING FORM IN CREATE MODE ===');
+    console.log('Current form attributes:');
+    console.log('method:', form.getAttribute('method'));
+    console.log('================================');
+    
+    // Set create mode attributes
+    form.setAttribute('method', 'POST');
+    
+    // Clear hidden diamond ID
+    document.getElementById('diamond_id').value = '';
+    
+    // Update form title and button
+    const titleEl = document.getElementById('diamondFormTitle');
+    if (titleEl) {
+        titleEl.textContent = 'Create New Diamond';
+    }
+    const submitButton = form.querySelector('button[type="submit"]');
+    submitButton.textContent = 'Create Diamond';
+    
+    // Remove cancel button if it exists
+    const cancelButton = document.getElementById('cancelEdit');
+    if (cancelButton) {
+        cancelButton.remove();
+    }
+    
+    console.log('Form reset to create mode');
+    console.log('method:', form.getAttribute('method'));
+    console.log('================================');
+}
+
+// Edit diamond function (moved from diamond_list.html for global access)
+function editDiamond(diamondId) {
+    console.log('editDiamond called with ID:', diamondId);
+    
+    // Fetch diamond data for editing
+    fetch(`/diamonds/${diamondId}/edit`)
+        .then(response => {
+            console.log('Response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Received diamond data:', data);
+            
+            // Fill the form with existing data
+            document.getElementById('diamond_id').value = diamondId;
+            document.getElementById('label').value = data.label || '';
+            document.getElementById('notes').value = data.notes || '';
+            document.getElementById('color').value = data.color || '#4ecdc4';
+            document.getElementById('adversary_indicators').value = data.adversary_indicators || '';
+            document.getElementById('victimology_indicators').value = data.victimology_indicators || '';
+            document.getElementById('capability_indicators').value = data.capability_indicators || '';
+            document.getElementById('infrastructure_indicators').value = data.infrastructure_indicators || '';
+            
+            // Expand panels that have content
+            if (data.adversary_indicators && data.adversary_indicators.trim()) {
+                toggleSection('adversary');
+            }
+            if (data.victimology_indicators && data.victimology_indicators.trim()) {
+                toggleSection('victimology');
+            }
+            if (data.capability_indicators && data.capability_indicators.trim()) {
+                toggleSection('capability');
+            }
+            if (data.infrastructure_indicators && data.infrastructure_indicators.trim()) {
+                toggleSection('infrastructure');
+            }
+            
+            // Change form to edit mode
+            const form = document.getElementById('diamondForm');
+            if (!form) {
+                throw new Error('diamondForm not found');
+            }
+            console.log('Switching form to edit mode for diamond ID:', diamondId);
+            
+            // Set edit mode attributes
+            form.setAttribute('method', 'PUT');
+            
+            console.log('Form attributes after edit mode switch:');
+            console.log('method:', form.getAttribute('method'));
+            
+            // Update form title and button
+            const titleEl = document.getElementById('diamondFormTitle');
+            if (titleEl) {
+                titleEl.textContent = 'Edit Diamond';
+            }
+            const submitButton = form.querySelector('button[type="submit"]');
+            submitButton.textContent = 'Update Diamond';
+            
+            // Add cancel button
+            if (!document.getElementById('cancelEdit')) {
+                const cancelButton = document.createElement('button');
+                cancelButton.type = 'button';
+                cancelButton.id = 'cancelEdit';
+                cancelButton.textContent = 'Cancel';
+                cancelButton.className = 'secondary';
+                cancelButton.onclick = cancelEdit;
+                submitButton.parentNode.appendChild(cancelButton);
+            }
+            
+            // Scroll to form
+            form.scrollIntoView({ behavior: 'smooth' });
+        })
+        .catch(error => {
+            console.error('Error loading diamond for edit:', error);
+            alert('Error loading diamond for editing. Please try again.');
+        });
+}
+
+// Cancel edit function
+function cancelEdit() {
+    // Reset form to create mode
+    const form = document.getElementById('diamondForm');
+    if (!form) {
+        console.error('diamondForm not found; cannot cancel edit');
+        return;
+    }
+    console.log('Canceling edit, switching form back to create mode');
+    
+    // Restore POST attributes for create mode
+    form.setAttribute('method', 'POST');
+    
+    console.log('Form attributes after cancel:');
+    console.log('method:', form.getAttribute('method'));
+    
+    // Clear form
+    form.reset();
+    document.getElementById('diamond_id').value = '';
+    
+    // Update form title and button
+    const titleEl = document.getElementById('diamondFormTitle');
+    if (titleEl) {
+        titleEl.textContent = 'Create New Diamond';
+    }
+    const submitButton = form.querySelector('button[type="submit"]');
+    submitButton.textContent = 'Create Diamond';
+    
+    // Remove cancel button
+    const cancelButton = document.getElementById('cancelEdit');
+    if (cancelButton) {
+        cancelButton.remove();
+    }
+}
+
+// Success popup functions
+function showCreateSuccess() {
+    showSuccessPopup('Diamond created successfully!');
+}
+
+function showUpdateSuccess() {
+    showSuccessPopup('Diamond updated successfully!');
+}
+
+function showSuccessPopup(message) {
+    // Create popup if it doesn't exist
+    let popup = document.getElementById('successPopup');
+    if (!popup) {
+        popup = document.createElement('div');
+        popup.id = 'successPopup';
+        popup.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #4ecdc4;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 10000;
+            font-weight: bold;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.3s ease;
+        `;
+        document.body.appendChild(popup);
+    }
+    
+    popup.textContent = message;
+    popup.style.opacity = '1';
+    popup.style.transform = 'translateX(0)';
+    
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+        popup.style.opacity = '0';
+        popup.style.transform = 'translateX(100%)';
+    }, 3000);
+}
+
+// View diamond details function (for graph clicks)
+function viewDiamondDetails(diamondId) {
+    console.log('Loading diamond details for ID:', diamondId);
+    
+    // Show loading state
+    document.getElementById('popupDiamondContent').innerHTML = '<p>Loading diamond details...</p>';
+    document.getElementById('diamondDetailsPopup').style.display = 'flex';
+    
+    // Fetch diamond details
+    fetch(`/diamonds/${diamondId}/details`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Received diamond details:', data);
+            displayDiamondDetails(data);
+        })
+        .catch(error => {
+            console.error('Error loading diamond details:', error);
+            document.getElementById('popupDiamondContent').innerHTML = 
+                '<p style="color: red;">Error loading diamond details. Please try again.</p>';
+        });
+}
+
+function displayDiamondDetails(data) {
+    console.log('Displaying diamond details:', data);
+    console.log('Adversary indicators type:', typeof data.adversary_indicators, data.adversary_indicators);
+    
+    // Ensure indicators are arrays
+    const adversaryIndicators = Array.isArray(data.adversary_indicators) ? data.adversary_indicators : [];
+    const victimologyIndicators = Array.isArray(data.victimology_indicators) ? data.victimology_indicators : [];
+    const capabilityIndicators = Array.isArray(data.capability_indicators) ? data.capability_indicators : [];
+    const infrastructureIndicators = Array.isArray(data.infrastructure_indicators) ? data.infrastructure_indicators : [];
+    
+    const content = `
+        <div class="diamond-details">
+            <div class="diamond-info">
+                <div class="diamond-header">
+                    <div class="diamond-color" style="background-color: ${data.color};"></div>
+                    <h3>${data.label}</h3>
+                </div>
+                ${data.notes ? `<p class="diamond-notes"><em>${data.notes}</em></p>` : ''}
+                <div class="diamond-meta">
+                    <p><strong>Created:</strong> ${new Date(data.created_at).toLocaleString()}</p>
+                    ${data.updated_at ? `<p><strong>Updated:</strong> ${new Date(data.updated_at).toLocaleString()}</p>` : ''}
+                </div>
+            </div>
+            
+            <div class="vertex-sections">
+                <div class="vertex-section">
+                    <h4>🎯 Adversary</h4>
+                    <div class="indicators-list">
+                        ${adversaryIndicators.length > 0 ? 
+                            adversaryIndicators.map(indicator => `<span class="indicator-tag">${indicator}</span>`).join('') : 
+                            '<p class="no-indicators">No adversary indicators</p>'
+                        }
+                    </div>
+                </div>
+                
+                <div class="vertex-section">
+                    <h4>👥 Victimology</h4>
+                    <div class="indicators-list">
+                        ${victimologyIndicators.length > 0 ? 
+                            victimologyIndicators.map(indicator => `<span class="indicator-tag">${indicator}</span>`).join('') : 
+                            '<p class="no-indicators">No victimology indicators</p>'
+                        }
+                    </div>
+                </div>
+                
+                <div class="vertex-section">
+                    <h4>⚡ Capability</h4>
+                    <div class="indicators-list">
+                        ${capabilityIndicators.length > 0 ? 
+                            capabilityIndicators.map(indicator => `<span class="indicator-tag">${indicator}</span>`).join('') : 
+                            '<p class="no-indicators">No capability indicators</p>'
+                        }
+                    </div>
+                </div>
+                
+                <div class="vertex-section">
+                    <h4>🏗️ Infrastructure</h4>
+                    <div class="indicators-list">
+                        ${infrastructureIndicators.length > 0 ? 
+                            infrastructureIndicators.map(indicator => `<span class="indicator-tag">${indicator}</span>`).join('') : 
+                            '<p class="no-indicators">No infrastructure indicators</p>'
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('popupDiamondLabel').textContent = data.label;
+    document.getElementById('popupDiamondContent').innerHTML = content;
+}
+
+function closeDiamondDetails() {
+    document.getElementById('diamondDetailsPopup').style.display = 'none';
+}
+
+// Clear form function
+function clearForm() {
+    const form = document.getElementById('diamondForm');
+    if (form) {
+        form.reset();
+        document.getElementById('diamond_id').value = '';
+        
+        // Reset form to create mode
+        ensureFormInCreateMode();
+        
+        console.log('Form cleared');
+    }
+}
+
+// Remove all diamonds function
+function removeAllDiamonds() {
+    if (confirm('Are you sure you want to remove ALL diamond models? This action cannot be undone.')) {
+        fetch('/diamonds/remove-all/', {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            } else {
+                throw new Error('Failed to remove all diamonds');
+            }
+        })
+        .then(data => {
+            console.log('All diamonds removed:', data);
+            // Reload the diamond list and graph
+            location.reload();
+        })
+        .catch(error => {
+            console.error('Error removing all diamonds:', error);
+            alert('Error removing all diamonds. Please try again.');
+        });
+    }
+}
+
+// Toggle collapsible sections
+function toggleSection(sectionName) {
+    const content = document.getElementById(sectionName + '-content');
+    const icon = document.querySelector(`[onclick="toggleSection('${sectionName}')"] .expand-icon`);
+    
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        icon.textContent = '▲';
+    } else {
+        content.style.display = 'none';
+        icon.textContent = '▼';
+    }
+}
+</script>
+{% endblock %}
