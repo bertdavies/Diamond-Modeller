@@ -1,5 +1,5 @@
 """
-Diamond Modeler — database engine and session management.
+Diamond Modeller — database engine and session management.
 
 Author: Albert Davies
 License: CC BY-NC-SA 4.0
@@ -10,7 +10,7 @@ from typing import Generator
 import os
 
 # Database URL - using SQLite for local development
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./diamond_modeler.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./diamond_modeller.db")
 
 # Create engine
 engine = create_engine(DATABASE_URL, echo=True)

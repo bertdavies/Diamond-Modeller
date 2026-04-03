@@ -1,15 +1,15 @@
-# Diamond Modeler
+# Diamond Modeller
 
 **Author:** Albert Davies
 **License:** CC BY-NC-SA 4.0 — free for the CTI community, commercial use requires permission
 
-Diamond Modeler is an interactive web application for building, visualising, and analysing [Diamond Model](https://www.activeresponse.org/wp-content/uploads/2013/07/diamond.pdf) graphs for Cyber Threat Intelligence (CTI).
+Diamond Modeller is an interactive web application for building, visualising, and analysing [Diamond Model](https://www.activeresponse.org/wp-content/uploads/2013/07/diamond.pdf) graphs for Cyber Threat Intelligence (CTI).
 
-## Why Diamond Modeler?
+## Why Diamond Modeller?
 
-The real power of Diamond Modeler is as a **backend for agentic orchestration systems**. The included **Agent Skill** (`diamond-modeler-skill/`) gives any AI agent full CRUD access to the Diamond Model graph via a REST API. This means an autonomous agent can ingest threat intelligence reports, decompose them into diamond models mapped to kill chain phases or MITRE ATT&CK tactics, build a connected graph, and generate attribution hypotheses — all programmatically, at scale, without human interaction.
+The real power of Diamond Modeller is as a **backend for agentic orchestration systems**. The included **Agent Skill** (`diamond-modeller-skill/`) gives any AI agent full CRUD access to the Diamond Model graph via a REST API. This means an autonomous agent can ingest threat intelligence reports, decompose them into diamond models mapped to kill chain phases or MITRE ATT&CK tactics, build a connected graph, and generate attribution hypotheses — all programmatically, at scale, without human interaction.
 
-That said, Diamond Modeler is designed to work at three levels:
+That said, Diamond Modeller is designed to work at three levels:
 
 ### 1. Agentic Integration (recommended)
 
@@ -22,15 +22,15 @@ Install the included skill into your orchestration framework. An AI agent can th
 - Export/import entire analyses as JSON
 - Trigger OpenAI-powered attribution hypothesis generation
 
-See `diamond-modeler-skill/SKILL.md` for full instructions, and `diamond-modeler-skill/scripts/diamond_modeler.py` for the Python client.
+See `diamond-modeller-skill/SKILL.md` for full instructions, and `diamond-modeller-skill/scripts/diamond_modeller.py` for the Python client.
 
 ### 2. Standalone with OpenAI Attribution
 
-Run Diamond Modeler as a standalone web app. Build your graph manually through the UI, then click **Generate hypotheses** to send the full diamond set to an OpenAI-powered analysis pipeline. It produces a downloadable PDF report with ranked attribution hypotheses, confidence levels, and supporting evidence. Requires an OpenAI API key (set via the UI or `.env`).
+Run Diamond Modeller as a standalone web app. Build your graph manually through the UI, then click **Generate hypotheses** to send the full diamond set to an OpenAI-powered analysis pipeline. It produces a downloadable PDF report with ranked attribution hypotheses, confidence levels, and supporting evidence. Requires an OpenAI API key (set via the UI or `.env`).
 
 ### 3. Workbench Mode (no API key needed)
 
-Use Diamond Modeler purely as a diamond modelling workbench. Create diamonds, populate vertices with indicators, and let the app auto-generate links where indicators overlap. Export your analysis as JSON or PNG. No OpenAI key required — attribution is entirely optional.
+Use Diamond Modeller purely as a diamond modelling workbench. Create diamonds, populate vertices with indicators, and let the app auto-generate links where indicators overlap. Export your analysis as JSON or PNG. No OpenAI key required — attribution is entirely optional.
 
 ## How It Works
 
@@ -86,13 +86,13 @@ The PDF downloads directly in the browser.
 
 ## Agent Skill
 
-The `diamond-modeler-skill/` directory contains everything an AI agent needs to interact with Diamond Modeler:
+The `diamond-modeller-skill/` directory contains everything an AI agent needs to interact with Diamond Modeller:
 
 ```text
-diamond-modeler-skill/
+diamond-modeller-skill/
 ├── SKILL.md                        # Skill definition and usage instructions
 ├── scripts/
-│   └── diamond_modeler.py          # Python client (DiamondModelerClient)
+│   └── diamond_modeller.py          # Python client (DiamondModellerClient)
 └── references/
     └── API_REFERENCE.md            # Full REST API endpoint reference
 ```
@@ -105,7 +105,7 @@ The Python client provides dedicated methods for kill chain (`create_kill_chain_
 
 | Element | Description |
 |---|---|
-| **Diamond Modeler** | App title (left) |
+| **Diamond Modeller** | App title (left) |
 | **About** | Opens this README rendered as HTML |
 | **Moon/Sun icon** | Toggles dark mode |
 
@@ -149,8 +149,8 @@ An example Scattered Spider kill chain analysis ships with the project in `examp
 ## Quick Start
 
 ```bash
-git clone https://github.com/your-username/diamond-modeler.git
-cd diamond-modeler
+git clone https://github.com/your-username/diamond-modeller.git
+cd diamond-modeller
 python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
@@ -164,7 +164,7 @@ Then open http://localhost:8000.
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `DATABASE_URL` | No | `sqlite:///./diamond_modeler.db` | SQLite connection string |
+| `DATABASE_URL` | No | `sqlite:///./diamond_modeller.db` | SQLite connection string |
 | `OPENAI_API_KEY` | Only for hypothesis generation | — | Set via `.env` or the UI (Controls -> Set OpenAI API Key) |
 
 ## REST API Reference
@@ -256,7 +256,7 @@ alembic revision --autogenerate -m "describe change"
 │   ├── services.py           # Business logic
 │   └── indicators.py         # Indicator normalisation
 ├── attribution/              # OpenAI-powered hypothesis generation
-├── diamond-modeler-skill/    # Agent skill for agentic integration
+├── diamond-modeller-skill/    # Agent skill for agentic integration
 │   ├── SKILL.md              # Skill definition
 │   ├── scripts/              # Python API client
 │   └── references/           # API documentation

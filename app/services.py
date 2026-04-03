@@ -1,5 +1,5 @@
 """
-Diamond Modeler — business logic and data services.
+Diamond Modeller — business logic and data services.
 
 Author: Albert Davies
 License: CC BY-NC-SA 4.0

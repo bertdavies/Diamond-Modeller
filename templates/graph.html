@@ -7,15 +7,15 @@
 {% block content %}
 <div class="graph-page">
 <div class="graph-workspace" id="graphWorkspace">
-    <button type="button" class="btn btn-outline-secondary btn-sm modeler-toggle" onclick="openModelerDrawer()" title="Open panel">
+    <button type="button" class="btn btn-outline-secondary btn-sm modeller-toggle" onclick="openModellerDrawer()" title="Open panel">
         &#9654;
     </button>
-    <div class="modeler-backdrop" onclick="closeModelerDrawer()"></div>
-    <div class="modeler-drawer">
-        <button type="button" class="btn btn-outline-secondary btn-sm modeler-drawer-close" onclick="closeModelerDrawer()" title="Retract panel">
+    <div class="modeller-backdrop" onclick="closeModellerDrawer()"></div>
+    <div class="modeller-drawer">
+        <button type="button" class="btn btn-outline-secondary btn-sm modeller-drawer-close" onclick="closeModellerDrawer()" title="Retract panel">
             &#9664;
         </button>
-        {% include "_modeler_panel.html" %}
+        {% include "_modeller_panel.html" %}
     </div>
 
     <div class="card graph-card">
@@ -337,21 +337,21 @@ function getWorkspace() {
     return document.getElementById('graphWorkspace');
 }
 
-function openModelerDrawer() {
+function openModellerDrawer() {
     const ws = getWorkspace();
     if (ws) {
         ws.classList.add('drawer-open');
     }
 }
 
-function closeModelerDrawer() {
+function closeModellerDrawer() {
     const ws = getWorkspace();
     if (ws) {
         ws.classList.remove('drawer-open');
     }
 }
 
-function toggleModelerDrawer() {
+function toggleModellerDrawer() {
     const ws = getWorkspace();
     if (ws) {
         ws.classList.toggle('drawer-open');
@@ -548,7 +548,7 @@ function editDiamond(diamondId) {
             return response.json();
         })
         .then(data => {
-            openModelerDrawer();
+            openModellerDrawer();
             ensureCreateDiamondFormOpen();
 
             document.getElementById('diamond_id').value = diamondId;
@@ -1230,7 +1230,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const ws = getWorkspace();
             if (ws && ws.classList.contains('drawer-open')) {
-                closeModelerDrawer();
+                closeModellerDrawer();
             }
         }
     });

@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-Diamond Modeler REST API client.
+Diamond Modeller REST API client.
 
 Provides CRUD operations for diamonds, links, graph data, export/import,
-settings, and hypothesis generation against a running Diamond Modeler instance.
+settings, and hypothesis generation against a running Diamond Modeller instance.
 
 Author: Albert Davies
 License: CC BY-NC-SA 4.0
 
 Usage:
-    from diamond_modeler import DiamondModelerClient
-    client = DiamondModelerClient("http://localhost:8000")
+    from diamond_modeller import DiamondModellerClient
+    client = DiamondModellerClient("http://localhost:8000")
     client.create_diamond(label="Recon", adversary_indicators=["APT29"])
 
 Only dependency: requests
@@ -25,8 +25,8 @@ from typing import Any, Dict, List, Optional, Union
 import requests
 
 
-class DiamondModelerError(Exception):
-    """Raised when the Diamond Modeler API returns an error."""
+class DiamondModellerError(Exception):
+    """Raised when the Diamond Modeller API returns an error."""
 
     def __init__(self, status_code: int, detail: str):
         self.status_code = status_code
@@ -34,8 +34,8 @@ class DiamondModelerError(Exception):
         super().__init__(f"HTTP {status_code}: {detail}")
 
 
-class DiamondModelerClient:
-    """Client for the Diamond Modeler REST API."""
+class DiamondModellerClient:
+    """Client for the Diamond Modeller REST API."""
 
     def __init__(self, base_url: str = "http://localhost:8000", timeout: int = 120):
         self.base_url = base_url.rstrip("/")
@@ -56,7 +56,7 @@ class DiamondModelerClient:
                 detail = body.get("detail") or body.get("message") or json.dumps(body)
             except Exception:
                 detail = resp.text[:500]
-            raise DiamondModelerError(resp.status_code, detail)
+            raise DiamondModellerError(resp.status_code, detail)
         return resp
 
     def _indicators_to_str(self, indicators: Optional[List[str]]) -> str:
@@ -450,7 +450,7 @@ class DiamondModelerClient:
     # ------------------------------------------------------------------
 
     def ping(self) -> bool:
-        """Return True if the Diamond Modeler app is reachable."""
+        """Return True if the Diamond Modeller app is reachable."""
         try:
             resp = self._session.get(self._url("/graph"), timeout=5)
             return resp.ok
@@ -459,12 +459,12 @@ class DiamondModelerClient:
 
 
 if __name__ == "__main__":
-    client = DiamondModelerClient()
+    client = DiamondModellerClient()
     if client.ping():
-        print("Diamond Modeler is reachable.")
+        print("Diamond Modeller is reachable.")
         graph = client.get_graph()
         nodes = graph.get("elements", {}).get("nodes", [])
         edges = graph.get("elements", {}).get("edges", [])
         print(f"Graph: {len(nodes)} diamonds, {len(edges)} edges.")
     else:
-        print("ERROR: Diamond Modeler is not reachable at http://localhost:8000")
+        print("ERROR: Diamond Modeller is not reachable at http://localhost:8000")

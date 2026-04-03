@@ -1,5 +1,5 @@
 """
-Diamond Modeler — SQLModel / Pydantic data models.
+Diamond Modeller — SQLModel / Pydantic data models.
 
 Author: Albert Davies
 License: CC BY-NC-SA 4.0

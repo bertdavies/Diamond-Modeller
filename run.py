@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Diamond Modeler — run the application.
+Diamond Modeller — run the application.
 
 Author: Albert Davies
 License: CC BY-NC-SA 4.0
@@ -10,7 +10,7 @@ import uvicorn
 from app.main import app
 
 if __name__ == "__main__":
-    print("Starting Diamond Modeler...")
+    print("Starting Diamond Modeller...")
     print("Open your browser and go to: http://localhost:8000")
     print("Press Ctrl+C to stop the server")
     

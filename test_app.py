@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Simple test script to verify the Diamond Modeler application works correctly.
+Simple test script to verify the Diamond Modeller application works correctly.
 This script creates some example data and tests the core functionality.
 """
 
@@ -168,7 +168,7 @@ def test_indicator_normalization():
 
 def main():
     """Run all tests"""
-    print("Diamond Modeler - Test Suite")
+    print("Diamond Modeller - Test Suite")
     print("=" * 40)
     
     try:

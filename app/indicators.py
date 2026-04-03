@@ -1,5 +1,5 @@
 """
-Diamond Modeler — indicator normalisation and classification.
+Diamond Modeller — indicator normalisation and classification.
 
 Author: Albert Davies
 License: CC BY-NC-SA 4.0

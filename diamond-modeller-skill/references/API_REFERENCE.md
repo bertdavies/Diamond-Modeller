@@ -1,4 +1,4 @@
-# Diamond Modeler API Reference
+# Diamond Modeller API Reference
 
 Base URL: `http://localhost:8000` (default)
 

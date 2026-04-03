@@ -1,21 +1,21 @@
 ---
-name: diamond-modeler-skill
+name: diamond-modeller-skill
 description: >
-  Interact with the Diamond Modeler REST API to create, read, update, and delete
+  Interact with the Diamond Modeller REST API to create, read, update, and delete
   Diamond Model entries for cyber threat intelligence analysis. Use this skill when
   you need to convert threat intelligence into Diamond Model data, add diamonds to
   the graph, query existing diamonds and graph edges, update indicator data, export
   or import analysis, or trigger hypothesis generation. Covers all CRUD operations
-  against the Diamond Modeler app running on localhost.
+  against the Diamond Modeller app running on localhost.
 license: CC BY-NC-SA 4.0
-compatibility: "Requires Python 3.10+, requests library, and a running Diamond Modeler instance on localhost"
+compatibility: "Requires Python 3.10+, requests library, and a running Diamond Modeller instance on localhost"
 metadata:
   author: "Albert Davies"
   version: "1.0"
 allowed-tools: "Bash(python3:*) Bash(python:*) Read"
 ---
 
-# Diamond Modeler Skill
+# Diamond Modeller Skill
 
 ## When to Use This Skill
 
@@ -34,21 +34,21 @@ Use this skill when the user wants to:
 
 ## Instructions
 
-### 1. Ensure the Diamond Modeler app is running
+### 1. Ensure the Diamond Modeller app is running
 
 The app must be running on `http://localhost:8000` (default). If it's on a different port, pass the `base_url` parameter when instantiating the client.
 
 ### 2. Use the Python client
 
-Run the client script at `scripts/diamond_modeler.py`. It exposes a `DiamondModelerClient` class with methods for every API endpoint.
+Run the client script at `scripts/diamond_modeller.py`. It exposes a `DiamondModellerClient` class with methods for every API endpoint.
 
 ```python
 # Example: instantiate and use
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
-from diamond_modeler import DiamondModelerClient
+from diamond_modeller import DiamondModellerClient
 
-client = DiamondModelerClient()  # defaults to http://localhost:8000
+client = DiamondModellerClient()  # defaults to http://localhost:8000
 ```
 
 ### 3. Converting intelligence into diamonds
@@ -363,17 +363,17 @@ client.create_diamond(
 ## Directory Structure
 
 ```text
-diamond-modeler-skill/
+diamond-modeller-skill/
 ├── SKILL.md                        # This file
 ├── scripts/
-│   └── diamond_modeler.py          # Python client with CRUD functions
+│   └── diamond_modeller.py          # Python client with CRUD functions
 └── references/
     └── API_REFERENCE.md            # Full REST API endpoint reference
 ```
 
 ### scripts/
 
-`diamond_modeler.py` — A self-contained Python module exposing `DiamondModelerClient`. Only dependency is `requests` (standard in most environments). All methods return parsed JSON or raise on error.
+`diamond_modeller.py` — A self-contained Python module exposing `DiamondModellerClient`. Only dependency is `requests` (standard in most environments). All methods return parsed JSON or raise on error.
 
 ### references/
 
