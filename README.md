@@ -163,7 +163,7 @@ An example Scattered Spider kill chain analysis ships with the project in `examp
 ## Quick Start
 
 ```bash
-git clone https://github.com/bertdavies/Diamond-Modeler.git
+git clone https://github.com/bertdavies/Diamond-Modeller.git
 cd diamond-modeller
 python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
