@@ -467,6 +467,27 @@ function updateDiamondListHtml(html) {
         return;
     }
     container.innerHTML = html;
+    _restoreHiddenDiamondButtons();
+}
+
+function _restoreHiddenDiamondButtons() {
+    Object.keys(_hiddenDiamonds).forEach(function(id) {
+        var btns = document.querySelectorAll('button[onclick*="toggleDiamondVisibility(' + id + ',"]');
+        btns.forEach(function(btn) {
+            var icon = btn.querySelector('i');
+            if (icon) icon.className = 'mdi mdi-eye-off';
+            btn.title = 'Show on graph';
+            btn.classList.remove('btn-outline-secondary');
+            btn.classList.add('btn-outline-warning');
+        });
+        if (typeof cy !== 'undefined' && cy) {
+            var node = cy.getElementById('d' + id);
+            if (!node.empty()) {
+                node.style('display', 'none');
+                node.connectedEdges().style('display', 'none');
+            }
+        }
+    });
 }
 
 function extractErrorFromListHtml(html) {
@@ -608,6 +629,65 @@ function editDiamond(diamondId) {
         });
 }
 
+var _hiddenDiamonds = {};
+
+function toggleDiamondVisibility(diamondId, btnEl) {
+    var nodeId = 'd' + diamondId;
+    var isHidden = !!_hiddenDiamonds[diamondId];
+
+    if (isHidden) {
+        delete _hiddenDiamonds[diamondId];
+        if (typeof cy !== 'undefined' && cy) {
+            var node = cy.getElementById(nodeId);
+            if (!node.empty()) {
+                node.style('display', 'element');
+                node.connectedEdges().forEach(function(edge) {
+                    var otherNodeId = edge.source().id() === nodeId ? edge.target().id() : edge.source().id();
+                    var otherId = otherNodeId.replace('d', '');
+                    if (!_hiddenDiamonds[otherId]) {
+                        edge.style('display', 'element');
+                    }
+                });
+            }
+        }
+        if (btnEl) {
+            var icon = btnEl.querySelector('i');
+            if (icon) { icon.className = 'mdi mdi-eye'; }
+            btnEl.title = 'Hide from graph';
+            btnEl.classList.remove('btn-outline-warning');
+            btnEl.classList.add('btn-outline-secondary');
+        }
+    } else {
+        _hiddenDiamonds[diamondId] = true;
+        if (typeof cy !== 'undefined' && cy) {
+            var node = cy.getElementById(nodeId);
+            if (!node.empty()) {
+                node.style('display', 'none');
+                node.connectedEdges().style('display', 'none');
+            }
+        }
+        if (btnEl) {
+            var icon = btnEl.querySelector('i');
+            if (icon) { icon.className = 'mdi mdi-eye-off'; }
+            btnEl.title = 'Show on graph';
+            btnEl.classList.remove('btn-outline-secondary');
+            btnEl.classList.add('btn-outline-warning');
+        }
+    }
+    updateEdgeLabelsOverlay();
+}
+
+function _reapplyHiddenDiamonds() {
+    if (typeof cy === 'undefined' || !cy) return;
+    Object.keys(_hiddenDiamonds).forEach(function(id) {
+        var node = cy.getElementById('d' + id);
+        if (!node.empty()) {
+            node.style('display', 'none');
+            node.connectedEdges().style('display', 'none');
+        }
+    });
+}
+
 function deleteDiamond(diamondId) {
     if (!confirm('Are you sure you want to delete this diamond? This action cannot be undone.')) {
         return;
@@ -724,7 +804,7 @@ function initGraph() {
             {
                 selector: 'edge',
                 style: {
-                    'width': 0.75,
+                    'width': 0.375,
                     'line-color': '#000000',
                     'target-arrow-shape': 'none',
                     'curve-style': 'bezier',
@@ -751,7 +831,7 @@ function initGraph() {
                 style: {
                     'line-color': '#000000',
                     'target-arrow-shape': 'none',
-                    'width': 0.75,
+                    'width': 0.375,
                     'text-rotation': 'none',
                     'text-background-color': '#ffffff',
                     'text-background-opacity': 1,
@@ -766,14 +846,14 @@ function initGraph() {
             name: 'cose',
             animate: true,
             animationDuration: 1000,
-            nodeRepulsion: 80000,
-            idealEdgeLength: 400,
-            nodeOverlap: 80,
-            gravity: 0.08,
+            nodeRepulsion: 320000,
+            idealEdgeLength: 1600,
+            nodeOverlap: 320,
+            gravity: 0.02,
             nestingFactor: 1.2,
             edgeElasticity: 50,
             numIter: 2000,
-            padding: 80
+            padding: 320
         },
         // High resolution settings
         pixelRatio: window.devicePixelRatio || 1,
@@ -889,49 +969,134 @@ function loadGraphData() {
             });
 
             cy.resize();
-            var nc = baseNodes.length || 1;
-            var ec = baseEdges.length || 1;
-            var repulsion = Math.max(80000, ec * 1500);
-            var edgeLen = Math.max(400, nc * 80);
-            cy.layout({
-                name: 'cose',
-                animate: true,
-                animationDuration: 1000,
-                nodeRepulsion: repulsion,
-                idealEdgeLength: edgeLen,
-                nodeOverlap: 80,
-                gravity: 0.08,
-                nestingFactor: 1.2,
-                edgeElasticity: 50,
-                numIter: 2000,
-                padding: 80
-            }).run().promise().then(function() {
-                cy.resize();
-                cy.fit(undefined, 60);
-                applyGraphDarkMode();
-                updateEdgeLabelsOverlay();
-                updateNotesOverlay(true);
-            });
+            runSmartLayout(baseNodes, baseEdges);
         })
         .catch(error => console.error('Error loading graph:', error));
 }
 
+function _extractKcOrder(label) {
+    if (!label) return -1;
+    var m = label.match(/^KC(\d+)\b/i);
+    return m ? parseInt(m[1], 10) : -1;
+}
+
+function _extractTaOrder(label) {
+    if (!label) return -1;
+    var m = label.match(/^TA(\d{4})\b/i);
+    if (!m) return -1;
+    var taId = m[1];
+    var taOrder = [
+        '0043','0042','0001','0002','0003','0004',
+        '0005','0006','0007','0008','0009','0011','0010','0040'
+    ];
+    var idx = taOrder.indexOf(taId);
+    return idx >= 0 ? idx : parseInt(taId, 10);
+}
+
+function _countOverlaps() {
+    var overlaps = {};
+    cy.edges().forEach(function(edge) {
+        var s = edge.data('source');
+        var t = edge.data('target');
+        var key = [s, t].sort().join('|');
+        overlaps[key] = (overlaps[key] || 0) + 1;
+    });
+    return overlaps;
+}
+
+function runSmartLayout(nodes, edges) {
+    var nc = (nodes || cy.nodes()).length || 1;
+    var ec = (edges || cy.edges()).length || 1;
+
+    var kcNodes = [];
+    var taNodes = [];
+    var otherNodes = [];
+
+    cy.nodes().forEach(function(n) {
+        var label = n.data('label') || '';
+        var kcIdx = _extractKcOrder(label);
+        var taIdx = _extractTaOrder(label);
+        if (kcIdx >= 0) {
+            kcNodes.push({ node: n, order: kcIdx });
+        } else if (taIdx >= 0) {
+            taNodes.push({ node: n, order: taIdx });
+        } else {
+            otherNodes.push(n);
+        }
+    });
+
+    var orderedNodes = null;
+    if (kcNodes.length >= 2) {
+        kcNodes.sort(function(a, b) { return a.order - b.order; });
+        orderedNodes = kcNodes;
+    } else if (taNodes.length >= 2) {
+        taNodes.sort(function(a, b) { return a.order - b.order; });
+        orderedNodes = taNodes;
+    }
+
+    if (orderedNodes) {
+        var verticalSpacing = 200;
+        var staggerOffset = 125;
+        var overlaps = _countOverlaps();
+        var startY = 100;
+
+        orderedNodes.forEach(function(item, i) {
+            var xOffset = (i % 2 === 0) ? -staggerOffset : staggerOffset;
+            item.node.position({
+                x: 600 + xOffset,
+                y: startY + verticalSpacing * i
+            });
+        });
+
+        otherNodes.forEach(function(n, i) {
+            n.position({
+                x: 1200 + (i % 3) * 300,
+                y: startY + 200 * i
+            });
+        });
+
+        cy.animate({ fit: { eles: cy.nodes(), padding: 80 } }, { duration: 600 });
+        setTimeout(function() { _postLayout(); }, 650);
+    } else {
+        var overlaps = _countOverlaps();
+        var maxOverlap = 1;
+        Object.values(overlaps).forEach(function(v) { if (v > maxOverlap) maxOverlap = v; });
+
+        cy.layout({
+            name: 'cose',
+            animate: true,
+            animationDuration: 1000,
+            nodeRepulsion: Math.max(400000, ec * 8000),
+            idealEdgeLength: function(edge) {
+                var s = edge.data('source');
+                var t = edge.data('target');
+                var key = [s, t].sort().join('|');
+                var count = overlaps[key] || 1;
+                return 400 + count * 80;
+            },
+            nodeOverlap: 400,
+            gravity: 0.015,
+            nestingFactor: 1.2,
+            edgeElasticity: 30,
+            numIter: 3000,
+            padding: 200
+        }).run().promise().then(function() {
+            _postLayout();
+        });
+    }
+}
+
+function _postLayout() {
+    cy.resize();
+    cy.fit(undefined, 60);
+    applyGraphDarkMode();
+    _reapplyHiddenDiamonds();
+    updateEdgeLabelsOverlay();
+    updateNotesOverlay(true);
+}
+
 function resetLayout() {
-    var nc = cy.nodes().length || 1;
-    var ec = cy.edges().length || 1;
-    cy.layout({
-        name: 'cose',
-        animate: true,
-        animationDuration: 1000,
-        nodeRepulsion: Math.max(80000, ec * 1500),
-        idealEdgeLength: Math.max(400, nc * 80),
-        nodeOverlap: 80,
-        gravity: 0.08,
-        nestingFactor: 1.2,
-        edgeElasticity: 50,
-        numIter: 2000,
-        padding: 80
-    }).run();
+    runSmartLayout();
 }
 
 function graphZoomIn() {
@@ -957,7 +1122,33 @@ function applyGraphDarkMode() {
     updateEdgeLabelsOverlay();
 }
 
-var _expandedEdgeGroup = null;
+var _expandedEdgeGroups = {};
+
+function _parseHexColor(hex) {
+    hex = hex.replace('#', '');
+    if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+    return {
+        r: parseInt(hex.substring(0, 2), 16),
+        g: parseInt(hex.substring(2, 4), 16),
+        b: parseInt(hex.substring(4, 6), 16)
+    };
+}
+
+function _blendColors(hex1, hex2) {
+    var c1 = _parseHexColor(hex1);
+    var c2 = _parseHexColor(hex2);
+    var r = Math.round((c1.r + c2.r) / 2);
+    var g = Math.round((c1.g + c2.g) / 2);
+    var b = Math.round((c1.b + c2.b) / 2);
+    return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+}
+
+function _colorEdgesForGroup(group, color) {
+    group.edges.forEach(function(edge) {
+        edge.style('line-color', color);
+        edge.style('width', color === null ? 0.375 : 2);
+    });
+}
 
 function updateEdgeLabelsOverlay() {
     var overlay = document.getElementById('edge-labels-overlay');
@@ -965,9 +1156,12 @@ function updateEdgeLabelsOverlay() {
     var pan = cy.pan();
     var zoom = cy.zoom();
     overlay.innerHTML = '';
+    var dark = document.body.classList.contains('dark-mode');
+    var defaultEdgeColor = dark ? '#e4e4e7' : '#000000';
 
     var groups = {};
     cy.edges().forEach(function(edge) {
+        if (edge.style('display') === 'none') return;
         var s = edge.data('source');
         var t = edge.data('target');
         var key = [s, t].sort().join('|');
@@ -990,7 +1184,19 @@ function updateEdgeLabelsOverlay() {
         var x = mx * zoom + pan.x;
         var y = my * zoom + pan.y;
 
-        var isExpanded = (_expandedEdgeGroup === key);
+        var isExpanded = !!_expandedEdgeGroups[key];
+
+        // Colour edges based on expanded state
+        var blended = null;
+        if (isExpanded) {
+            var srcColor = srcNode.data('color') || '#4b49ac';
+            var tgtColor = tgtNode.data('color') || '#4b49ac';
+            blended = (srcColor === tgtColor) ? srcColor : _blendColors(srcColor, tgtColor);
+            _colorEdgesForGroup(group, blended);
+        } else {
+            _colorEdgesForGroup(group, defaultEdgeColor);
+            group.edges.forEach(function(edge) { edge.style('width', 0.375); });
+        }
 
         var wrapper = document.createElement('div');
         wrapper.className = 'edge-group-wrapper';
@@ -1000,9 +1206,17 @@ function updateEdgeLabelsOverlay() {
         var badge = document.createElement('div');
         badge.className = 'edge-group-badge';
         badge.textContent = labels.length + ' shared indicator' + (labels.length !== 1 ? 's' : '');
+        if (isExpanded && blended) {
+            badge.style.borderColor = blended;
+            badge.style.boxShadow = '0 0 0 1px ' + blended;
+        }
         badge.addEventListener('click', function(e) {
             e.stopPropagation();
-            _expandedEdgeGroup = isExpanded ? null : key;
+            if (_expandedEdgeGroups[key]) {
+                delete _expandedEdgeGroups[key];
+            } else {
+                _expandedEdgeGroups[key] = true;
+            }
             updateEdgeLabelsOverlay();
         });
         wrapper.appendChild(badge);
@@ -1010,6 +1224,10 @@ function updateEdgeLabelsOverlay() {
         if (isExpanded) {
             var list = document.createElement('div');
             list.className = 'edge-group-list';
+            if (blended) {
+                list.style.borderColor = blended;
+                list.style.boxShadow = '0 4px 16px rgba(0,0,0,0.12), 0 0 0 1px ' + blended;
+            }
             labels.forEach(function(lbl) {
                 var item = document.createElement('div');
                 item.className = 'edge-group-item';
@@ -1022,13 +1240,6 @@ function updateEdgeLabelsOverlay() {
         overlay.appendChild(wrapper);
     });
 }
-
-document.addEventListener('click', function() {
-    if (_expandedEdgeGroup !== null) {
-        _expandedEdgeGroup = null;
-        updateEdgeLabelsOverlay();
-    }
-});
 
 // View diamond details function (for graph clicks)
 function viewDiamondDetails(diamondId) {
@@ -1236,55 +1447,212 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Export graph as high resolution PNG
+// Export graph as high resolution PNG with overlays drawn via Canvas 2D API
 function exportGraph() {
     if (!cy) {
         alert('Graph not loaded yet. Please wait and try again.');
         return;
     }
-    
+
+    var exportButton = document.querySelector('button[onclick="exportGraph()"]');
+    var originalText = exportButton ? exportButton.textContent : '';
+    if (exportButton) { exportButton.textContent = 'Exporting...'; exportButton.disabled = true; }
+
+    function resetButton() {
+        if (exportButton) { exportButton.textContent = originalText; exportButton.disabled = false; }
+    }
+
+    var isDark = document.body.classList.contains('dark-mode');
+    var bgColor = isDark ? '#1a1a1e' : '#ffffff';
+    var scale = 2;
+
     try {
-        // Show loading state
-        const exportButton = document.querySelector('button[onclick="exportGraph()"]');
-        const originalText = exportButton.textContent;
-        exportButton.textContent = 'Exporting...';
-        exportButton.disabled = true;
-        
-        // Export with high resolution settings
-        const png64 = cy.png({
-            output: 'base64',
-            bg: 'white',
-            full: true,
-            scale: 2, // 2x scale for high resolution
-            maxWidth: 4096,
-            maxHeight: 4096
+        var wrapper = document.querySelector('.graph-container-wrapper');
+        var w = wrapper.offsetWidth;
+        var h = wrapper.offsetHeight;
+        var wrapperRect = wrapper.getBoundingClientRect();
+
+        // 1. Get Cytoscape graph as base image
+        var baseDataUrl = 'data:image/png;base64,' + cy.png({
+            output: 'base64', bg: bgColor, full: false, scale: scale
         });
-        
-        // Create download link
-        const link = document.createElement('a');
-        link.download = `diamond-model-graph-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.png`;
-        link.href = 'data:image/png;base64,' + png64;
-        
-        // Trigger download
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        // Reset button state
-        exportButton.textContent = originalText;
-        exportButton.disabled = false;
-        
-        // Show success message
-        showSuccessMessage('Graph exported successfully!');
-        
+
+        var baseImg = new Image();
+        baseImg.src = baseDataUrl;
+        baseImg.onload = function() {
+            var canvas = document.createElement('canvas');
+            canvas.width = w * scale;
+            canvas.height = h * scale;
+            var ctx = canvas.getContext('2d');
+            ctx.scale(scale, scale);
+
+            // Draw base graph
+            ctx.drawImage(baseImg, 0, 0, w, h);
+
+            // 2. Draw edge label badges and expanded lists
+            var wrappers = document.querySelectorAll('.edge-group-wrapper');
+            wrappers.forEach(function(el) {
+                var badge = el.querySelector('.edge-group-badge');
+                var list = el.querySelector('.edge-group-list');
+                if (!badge) return;
+
+                var badgeRect = badge.getBoundingClientRect();
+                var bx = badgeRect.left - wrapperRect.left;
+                var by = badgeRect.top - wrapperRect.top;
+                var bw = badgeRect.width;
+                var bh = badgeRect.height;
+
+                var badgeStyle = getComputedStyle(badge);
+                var badgeBg = badgeStyle.backgroundColor;
+                var badgeBorder = badgeStyle.borderColor;
+                var badgeColor = badgeStyle.color;
+
+                // Draw badge pill
+                var radius = 12;
+                ctx.save();
+                ctx.beginPath();
+                ctx.roundRect(bx, by, bw, bh, radius);
+                ctx.fillStyle = badgeBg;
+                ctx.fill();
+                ctx.strokeStyle = badgeBorder;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                ctx.restore();
+
+                // Draw badge text
+                ctx.save();
+                ctx.font = '600 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+                ctx.fillStyle = badgeColor;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(badge.textContent, bx + bw / 2, by + bh / 2);
+                ctx.restore();
+
+                // Draw expanded list if present
+                if (!list) return;
+                var listRect = list.getBoundingClientRect();
+                var lx = listRect.left - wrapperRect.left;
+                var ly = listRect.top - wrapperRect.top;
+                var lw = listRect.width;
+
+                var listStyle = getComputedStyle(list);
+                var listBg = listStyle.backgroundColor;
+                var listBorder = listStyle.borderColor;
+
+                var items = list.querySelectorAll('.edge-group-item');
+                var itemHeight = 18;
+                var paddingY = 6;
+                var lh = items.length * itemHeight + paddingY * 2;
+
+                // List panel
+                ctx.save();
+                ctx.beginPath();
+                ctx.roundRect(lx, ly, lw, lh, 8);
+                ctx.fillStyle = listBg;
+                ctx.fill();
+                ctx.strokeStyle = listBorder;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // Shadow
+                ctx.shadowColor = 'rgba(0,0,0,0.12)';
+                ctx.shadowBlur = 16;
+                ctx.shadowOffsetY = 4;
+                ctx.beginPath();
+                ctx.roundRect(lx, ly, lw, lh, 8);
+                ctx.fill();
+                ctx.restore();
+
+                // Draw each item
+                ctx.save();
+                ctx.font = '10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'top';
+                items.forEach(function(item, i) {
+                    var itemStyle = getComputedStyle(item);
+                    // Zebra striping
+                    if (i % 2 === 0) {
+                        ctx.fillStyle = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)';
+                        ctx.fillRect(lx, ly + paddingY + i * itemHeight, lw, itemHeight);
+                    }
+                    ctx.fillStyle = itemStyle.color;
+                    var textX = lx + 12;
+                    var textY = ly + paddingY + i * itemHeight + 3;
+                    var maxTextW = lw - 24;
+                    var text = item.textContent;
+                    // Truncate with ellipsis if needed
+                    if (ctx.measureText(text).width > maxTextW) {
+                        while (text.length > 0 && ctx.measureText(text + '…').width > maxTextW) {
+                            text = text.slice(0, -1);
+                        }
+                        text += '…';
+                    }
+                    ctx.fillText(text, textX, textY);
+                });
+                ctx.restore();
+            });
+
+            // 3. Draw graph notes
+            var notes = document.querySelectorAll('.graph-note');
+            notes.forEach(function(note) {
+                var noteRect = note.getBoundingClientRect();
+                var nx = noteRect.left - wrapperRect.left;
+                var ny = noteRect.top - wrapperRect.top;
+                var nw = noteRect.width;
+                var nh = noteRect.height;
+
+                var noteStyle = getComputedStyle(note);
+                ctx.save();
+                ctx.beginPath();
+                ctx.roundRect(nx, ny, nw, nh, 8);
+                ctx.fillStyle = noteStyle.backgroundColor || (isDark ? '#2d2d32' : '#ffffff');
+                ctx.fill();
+                ctx.shadowColor = 'rgba(0,0,0,0.15)';
+                ctx.shadowBlur = 8;
+                ctx.shadowOffsetY = 2;
+                ctx.beginPath();
+                ctx.roundRect(nx, ny, nw, nh, 8);
+                ctx.fill();
+                ctx.restore();
+
+                var body = note.querySelector('.graph-note-body');
+                if (body) {
+                    ctx.save();
+                    ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+                    ctx.fillStyle = noteStyle.color || (isDark ? '#e4e4e7' : '#333');
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'top';
+                    var lines = (body.innerText || '').split('\n');
+                    var lineH = 16;
+                    var ty = ny + 8;
+                    lines.forEach(function(line) {
+                        ctx.fillText(line, nx + 10, ty, nw - 20);
+                        ty += lineH;
+                    });
+                    ctx.restore();
+                }
+            });
+
+            // 4. Download
+            var link = document.createElement('a');
+            link.download = 'diamond-model-graph-' + new Date().toISOString().slice(0, 19).replace(/:/g, '-') + '.png';
+            link.href = canvas.toDataURL('image/png');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            resetButton();
+            showSuccessMessage('Graph exported successfully!');
+        };
+
+        baseImg.onerror = function() {
+            alert('Error generating graph image.');
+            resetButton();
+        };
     } catch (error) {
         console.error('Export error:', error);
         alert('Error exporting graph. Please try again.');
-        
-        // Reset button state
-        const exportButton = document.querySelector('button[onclick="exportGraph()"]');
-        exportButton.textContent = 'Export as PNG';
-        exportButton.disabled = false;
+        resetButton();
     }
 }
 

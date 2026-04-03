@@ -194,7 +194,7 @@ GET /api/export-analysis
 
 ```json
 {
-  "version": "1.0",
+  "version": "1.1",
   "exported_at": "2026-03-06T12:00:00Z",
   "diamonds": [
     {

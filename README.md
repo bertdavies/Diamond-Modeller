@@ -1,4 +1,4 @@
-# Diamond Modeller
+# Diamond Modeller v1.1
 
 **Author:** Albert Davies
 **License:** CC BY-NC-SA 4.0 — free for the CTI community, commercial use requires permission
@@ -76,9 +76,13 @@ The PDF downloads directly in the browser.
 - **Create and edit diamonds** with four vertices (adversary, victimology, capability, infrastructure)
 - **Automatic link generation** when diamonds share indicators
 - **Interactive graph** (pan, zoom, drag) powered by Cytoscape.js
+- **Smart layout** — kill chain (`KC1`–`KC7`) and MITRE ATT&CK (`TA0001`–`TA0043`) diamonds are automatically arranged top-to-bottom in phase/tactic order; overlap count influences spacing
+- **Shared indicator badges** — edges between diamonds are summarised as clickable badges; click to expand the full list of shared indicators; multiple badges can be expanded simultaneously
+- **Coloured edge highlighting** — expanding a badge colours the connecting lines using the linked diamonds' colours (blended when different); the badge and list borders match
+- **Hide / show diamonds** — toggle visibility of individual diamonds from the Existing Diamonds list without deleting them
 - **Graph notes** — sticky notes on the graph canvas for annotations
 - **Dark mode** toggle in the navbar
-- **Export PNG** — high-resolution screenshot of the graph
+- **Export PNG** — high-resolution screenshot of the graph including all overlays (badges, expanded lists, notes)
 - **Export / Import graph** — share analysis as JSON files
 - **Generate hypotheses** — OpenAI-powered attribution analysis with PDF download
 - **Agent Skill** — full REST API client for agentic orchestration
@@ -129,11 +133,21 @@ The Python client provides dedicated methods for kill chain (`create_kill_chain_
 | **Generate hypotheses** | Run OpenAI attribution analysis and download a PDF report |
 | **Clear all** | Delete all diamonds, edges, and graph notes |
 
+### Existing Diamonds
+
+| Icon | Action |
+|---|---|
+| **Eye** | Hide/show the diamond on the graph (toggles visibility without deleting) |
+| **Pop-out** | View full diamond details in a popup |
+| **X** | Delete the diamond permanently |
+
 ### Graph Interaction
 
 - **Click a diamond** — opens a detail popup with indicators grouped by vertex
 - **Hover a diamond** — shows a "Click to expand" tooltip
-- **Click a shared indicators badge** — expands to show all shared indicators between two diamonds
+- **Click a shared indicators badge** — expands to show all shared indicators between two diamonds; the connecting lines turn coloured to match the linked diamonds
+- **Click another badge** — expands independently (previous badges stay open)
+- **Click an expanded badge again** — collapses it and resets the line colour
 - **Drag a diamond** — repositions it on the canvas
 - **Pan** — click and drag the background
 - **Zoom** — scroll wheel, or use the +/- buttons
@@ -149,7 +163,7 @@ An example Scattered Spider kill chain analysis ships with the project in `examp
 ## Quick Start
 
 ```bash
-git clone https://github.com/your-username/diamond-modeller.git
+git clone https://github.com/bertdavies/Diamond-Modeler.git
 cd diamond-modeller
 python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate

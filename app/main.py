@@ -21,7 +21,7 @@ from app.models import Diamond, DiamondResponse, LinkCreate, GraphResponse, Vert
 from app.services import create_diamond_with_indicators, create_automatic_links, get_graph_data, regenerate_all_links, run_attribution_analysis, export_analysis, import_analysis
 
 # Create FastAPI app
-app = FastAPI(title="Diamond Modeller", description="Cyber Threat Intelligence Diamond Model Analysis", version="1.0")
+app = FastAPI(title="Diamond Modeller", description="Cyber Threat Intelligence Diamond Model Analysis", version="1.1")
 
 # Load .env so OPENAI_API_KEY etc. are available
 try:

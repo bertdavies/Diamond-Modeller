@@ -264,7 +264,7 @@ def export_analysis(session: Session) -> Dict[str, Any]:
         })
 
     return {
-        "version": "1.0",
+        "version": "1.1",
         "exported_at": datetime.utcnow().isoformat() + "Z",
         "diamonds": diamond_list,
         "edges": edge_list,
@@ -273,7 +273,7 @@ def export_analysis(session: Session) -> Dict[str, Any]:
 
 def import_analysis(session: Session, data: Dict[str, Any]) -> Dict[str, Any]:
     """Import analysis from JSON. Replaces current diamonds and edges."""
-    version = data.get("version", "1.0")
+    version = data.get("version", "1.1")
     diamonds_data = data.get("diamonds") or []
     edges_data = data.get("edges") or []
 

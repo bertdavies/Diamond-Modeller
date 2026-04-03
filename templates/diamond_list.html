@@ -19,6 +19,9 @@
                 <p class="diamond-list-meta text-muted mb-0 mt-1 small">Created: {{ diamond.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
             </div>
             <div class="diamond-list-actions d-flex gap-1">
+                <button type="button" onclick="event.stopPropagation(); toggleDiamondVisibility({{ diamond.id }}, this);" class="btn btn-outline-secondary btn-sm diamond-list-btn" title="Hide from graph">
+                    <i class="mdi mdi-eye" aria-hidden="true"></i>
+                </button>
                 <button type="button" onclick="event.stopPropagation(); viewDiamondDetails({{ diamond.id }});" class="btn btn-outline-secondary btn-sm diamond-list-btn" title="View / Pop out">
                     <i class="mdi mdi-open-in-new" aria-hidden="true"></i>
                 </button>
